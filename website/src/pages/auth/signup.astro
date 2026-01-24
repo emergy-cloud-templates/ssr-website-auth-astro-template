@@ -1,0 +1,16 @@
+---
+import AuthLayout from '../../layouts/AuthLayout.astro';
+import { SignUpForm } from '../../components/auth/SignUpForm';
+---
+
+<AuthLayout title="Sign Up">
+  <Fragment slot="heading">Create your account</Fragment>
+  <Fragment slot="subheading">
+    Already have an account?{' '}
+    <a href="/auth/signin" class="font-medium text-indigo-600 hover:text-indigo-500">
+      Sign in
+    </a>
+  </Fragment>
+
+  <SignUpForm client:load />
+</AuthLayout>

@@ -1,0 +1,72 @@
+---
+import Layout from '../layouts/Layout.astro';
+
+const user = Astro.locals.user;
+---
+
+<Layout title="Home">
+  <nav class="bg-white shadow-sm">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div class="flex h-16 justify-between items-center">
+        <a href="/" class="text-xl font-bold text-indigo-600">Template</a>
+        <div class="flex items-center gap-4">
+          {user ? (
+            <>
+              <a href="/dashboard" class="text-sm font-medium text-gray-700 hover:text-indigo-600">
+                Dashboard
+              </a>
+              <a href="/account" class="text-sm font-medium text-gray-700 hover:text-indigo-600">
+                Account
+              </a>
+            </>
+          ) : (
+            <>
+              <a href="/auth/signin" class="text-sm font-medium text-gray-700 hover:text-indigo-600">
+                Sign in
+              </a>
+              <a
+                href="/auth/signup"
+                class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
+              >
+                Get started
+              </a>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <main class="mx-auto max-w-7xl px-4 py-24 sm:px-6 lg:px-8">
+    <div class="text-center">
+      <h1 class="text-4xl font-bold tracking-tight text-gray-900 sm:text-6xl">
+        Welcome to Template
+      </h1>
+      <p class="mt-6 text-lg leading-8 text-gray-600 max-w-2xl mx-auto">
+        A complete authentication system with account management. Sign up, sign in, reset your password, and manage your profile.
+      </p>
+      <div class="mt-10 flex items-center justify-center gap-x-6">
+        {user ? (
+          <a
+            href="/dashboard"
+            class="rounded-md bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
+          >
+            Go to Dashboard
+          </a>
+        ) : (
+          <>
+            <a
+              href="/auth/signup"
+              class="rounded-md bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
+            >
+              Get started
+            </a>
+            <a href="/auth/signin" class="text-sm font-semibold leading-6 text-gray-900">
+              Sign in <span aria-hidden="true">→</span>
+            </a>
+          </>
+        )}
+      </div>
+    </div>
+  </main>
+</Layout>

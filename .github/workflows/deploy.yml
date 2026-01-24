@@ -1,0 +1,134 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment to deploy to (dev|staging|prod)
+        required: true
+        type: choice
+        options: [ dev, staging, prod ]
+      sha:
+        description: Commit SHA to deploy (artifact key)
+        required: true
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+# Avoid overlapping deploys to the same environment
+concurrency:
+  group: deploy-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy ${{ inputs.environment }} from sha ${{ inputs.sha }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    env:
+      # ---- Infra config (override via repo/org variables) ----
+      AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+      PROJECT_ID: ${{ vars.PROJECT_ID }}
+      ROLE_TO_ASSUME: ${{ vars.AWS_DEPLOY_ROLE_TO_ASSUME || vars.AWS_INFRA_ROLE_TO_ASSUME }}
+      AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+
+      # The artifact source bucket (MUST match where build.yml uploads)
+      ARTIFACT_BUCKET: ${{ vars.ARTIFACT_BUCKET || format('{0}-artifacts', vars.PROJECT_ID) }}
+
+      # Target website buckets per env
+      S3_BUCKET_DEV: ${{ vars.S3_BUCKET_DEV || format('{0}-dev-website', vars.PROJECT_ID) }}
+      S3_BUCKET_STAGING: ${{ vars.S3_BUCKET_STAGING || format('{0}-staging-website', vars.PROJECT_ID) }}
+      S3_BUCKET_PROD: ${{ vars.S3_BUCKET_PROD || format('{0}-prod-website', vars.PROJECT_ID) }}
+
+      # Inputs
+      COMMIT_SHA: ${{ inputs.sha }}
+      ENV: ${{ inputs.environment }}
+
+    steps:
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Resolve target bucket
+        id: map
+        shell: bash
+        run: |
+          case "$ENV" in
+            dev)     echo "bucket=s3://${S3_BUCKET_DEV}"       >> "$GITHUB_OUTPUT" ;;
+            staging) echo "bucket=s3://${S3_BUCKET_STAGING}"   >> "$GITHUB_OUTPUT" ;;
+            prod)    echo "bucket=s3://${S3_BUCKET_PROD}"      >> "$GITHUB_OUTPUT" ;;
+            *) echo "Unknown environment: $ENV"; exit 1 ;;
+          esac
+
+      - name: Verify artifact exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC_PREFIX="builds/${COMMIT_SHA}/"
+          echo "Checking s3://${ARTIFACT_BUCKET}/${SRC_PREFIX}"
+          COUNT=$(aws s3api list-objects-v2 \
+                    --bucket "${ARTIFACT_BUCKET}" \
+                    --prefix "${SRC_PREFIX}" \
+                    --max-keys 1 \
+                    --query 'KeyCount' \
+                    --output text || echo 0)
+          if [ "${COUNT}" = "0" ]; then
+            echo "❌ Artifact not found at s3://${ARTIFACT_BUCKET}/${SRC_PREFIX}"
+            echo "Ensure build.yml uploaded this SHA to the same ARTIFACT_BUCKET."
+            exit 1
+          fi
+
+      - name: Sync artifact to target bucket
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC="s3://${ARTIFACT_BUCKET}/builds/${COMMIT_SHA}"
+          TARGET="${{ steps.map.outputs.bucket }}"
+          echo "Copying $SRC -> $TARGET"
+          aws s3 sync "$SRC/client/" "$TARGET/" --only-show-errors --delete
+
+          # Optional robots swapping if you uploaded env-specific variants
+          aws s3 cp "$SRC/client/${ENV}_robots.txt" "$TARGET/robots.txt" --only-show-errors
+          aws s3 rm "$TARGET/dev_robots.txt"      || true
+          aws s3 rm "$TARGET/staging_robots.txt" || true
+          aws s3 rm "$TARGET/prod_robots.txt"    || true
+
+      - name: Update lambda function
+        run: |
+          set -euo pipefail
+          aws lambda update-function-code \
+            --function-name "${PROJECT_ID}_${ENV}_website_ssr" \
+            --s3-bucket "${ARTIFACT_BUCKET}" \
+            --s3-key "builds/${COMMIT_SHA}/server.zip" \
+            --publish
+
+      - name: Invalidate CloudFront cache (by tags env + projectId)
+        shell: bash
+        run: |
+          set -euo pipefail
+          CLOUDFRONT_DISTRIBUTION_ID=$(
+            aws cloudfront list-distributions \
+              --query "DistributionList.Items[].Id" \
+              --output text | tr '\t' '\n' | while read distid; do
+                count=$(aws cloudfront list-tags-for-resource \
+                  --resource "arn:aws:cloudfront::${AWS_ACCOUNT_ID}:distribution/${distid}" \
+                  --query "length(Tags.Items[? (Key=='env' && Value=='${ENV}') || (Key=='projectId' && Value=='${PROJECT_ID}')])" \
+                  --output text)
+                # Require BOTH tags (env=$ENV and projectId=$PROJECT_ID)
+                if [ "$count" -eq 2 ]; then
+                  echo "$distid"; break
+                fi
+              done
+          )
+          if [ -z "$CLOUDFRONT_DISTRIBUTION_ID" ]; then
+            echo "❌ No CloudFront distribution with tags env=${ENV} and projectId=${PROJECT_ID} found." >&2
+            exit 1
+          fi
+          echo "Using distribution: $CLOUDFRONT_DISTRIBUTION_ID"
+          aws cloudfront create-invalidation \
+            --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
+            --paths "/*"

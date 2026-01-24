@@ -1,0 +1,27 @@
+---
+import Layout from './Layout.astro';
+import { DashboardShell } from '../components/dashboard/DashboardShell';
+
+interface Props {
+  title: string;
+  pageTitle?: string;
+}
+
+const { title, pageTitle } = Astro.props;
+const user = Astro.locals.user;
+const name = user?.user_metadata?.name || '';
+const email = user?.email || '';
+const currentPath = Astro.url.pathname;
+---
+
+<Layout title={title}>
+  <DashboardShell 
+    client:load
+    email={email} 
+    name={name} 
+    title={pageTitle}
+    currentPath={currentPath}
+  >
+    <slot />
+  </DashboardShell>
+</Layout>

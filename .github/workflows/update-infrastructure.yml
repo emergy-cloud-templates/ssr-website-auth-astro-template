@@ -1,0 +1,208 @@
+name: Update Infrastructure
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [ main ]
+    paths: [ "infrastructure/**" ]
+
+jobs:
+  update:
+    if: ${{ !(github.event_name == 'push' && github.run_number == 1) }}
+
+    runs-on: ubuntu-latest
+
+    env:
+      INFRA_DIR: ${{ vars.INFRA_DIR || 'infrastructure' }}
+      AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+      AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+      PROJECT_ID: ${{ vars.PROJECT_ID }}
+      TF_VERSION: ${{ vars.TF_VERSION || '1.7.5' }}
+      TF_BACKEND_BUCKET: ${{ vars.TF_BACKEND_BUCKET }}
+      TF_DDB_TABLE: ${{ vars.TF_DDB_TABLE || 'terraform-state-lock' }}
+      TF_STATE_KEY_PREFIX: ${{ vars.TF_STATE_KEY_PREFIX || 'default-project' }}
+      ROLE_TO_ASSUME: ${{ vars.AWS_INFRA_ROLE_TO_ASSUME }}
+
+      # Pass-thru TF vars your root uses
+      TF_VAR_aws_account_number: ${{ vars.AWS_ACCOUNT_ID }}
+      TF_VAR_project_id: ${{ vars.PROJECT_ID }}
+      TF_VAR_base_domain: ${{ vars.AWS_WEBSITE_ACM_NAME }}
+      TF_VAR_aws_website_acm_arn: ${{ vars.AWS_WEBSITE_ACM_ARN }}
+
+    permissions:
+      id-token: write
+      contents: read
+      deployments: write
+
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ env.INFRA_DIR }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Init (S3 backend with DynamoDB lock)
+        run: |
+          set -euo pipefail
+          rm -rf .terraform
+          terraform init \
+            -backend-config="bucket=${TF_BACKEND_BUCKET}" \
+            -backend-config="key=${TF_STATE_KEY_PREFIX}/terraform.tfstate" \
+            -backend-config="region=${AWS_REGION}" \
+            -backend-config="dynamodb_table=${TF_DDB_TABLE}"
+
+      - name: Create layer
+        run: |
+          set -euo pipefail
+          cd lambda_layer/nodejs
+          npm init -y
+          npm install @aws-sdk/client-lambda @aws-sdk/client-s3 axios fs lodash node-gzip
+
+          cd ..
+          zip -r lambda_layer_website_ssr.zip nodejs
+
+      - name: Create ssr_dist directory
+        working-directory: 'website'
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run build
+          npm run prepare:aws
+
+      # --- Deployments: create + mark in_progress ---
+      - name: Create Deployment (dev)
+        id: create_dep_dev
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          body=$(jq -n --arg ref "${{ github.sha }}" '
+            { ref: $ref, auto_merge: false, environment: "dev", required_contexts: [] }')
+          resp=$(echo "$body" | gh api -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Content-Type: application/json" \
+            repos/${{ github.repository }}/deployments --input -)
+          echo "DEPLOYMENT_ID=$(echo "$resp" | jq -r .id)" >> "$GITHUB_OUTPUT"
+
+      - name: Create Deployment (staging)
+        id: create_dep_staging
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          body=$(jq -n --arg ref "${{ github.sha }}" '
+            { ref: $ref, auto_merge: false, environment: "staging", required_contexts: [] }')
+          resp=$(echo "$body" | gh api -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Content-Type: application/json" \
+            repos/${{ github.repository }}/deployments --input -)
+          echo "DEPLOYMENT_ID=$(echo "$resp" | jq -r .id)" >> "$GITHUB_OUTPUT"
+
+      - name: Create Deployment (prod)
+        id: create_dep_prod
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          body=$(jq -n --arg ref "${{ github.sha }}" '
+            { ref: $ref, auto_merge: false, environment: "prod", required_contexts: [] }')
+          resp=$(echo "$body" | gh api -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Content-Type: application/json" \
+            repos/${{ github.repository }}/deployments --input -)
+          echo "DEPLOYMENT_ID=$(echo "$resp" | jq -r .id)" >> "$GITHUB_OUTPUT"
+
+      - name: Mark Deployments in_progress
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          gh api -X POST -H "Accept: application/vnd.github+json" \
+            repos/${{ github.repository }}/deployments/${{ steps.create_dep_dev.outputs.DEPLOYMENT_ID }}/statuses \
+            -f state="in_progress" \
+            -f log_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          gh api -X POST -H "Accept: application/vnd.github+json" \
+            repos/${{ github.repository }}/deployments/${{ steps.create_dep_staging.outputs.DEPLOYMENT_ID }}/statuses \
+            -f state="in_progress" \
+            -f log_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          gh api -X POST -H "Accept: application/vnd.github+json" \
+            repos/${{ github.repository }}/deployments/${{ steps.create_dep_prod.outputs.DEPLOYMENT_ID }}/statuses \
+            -f state="in_progress" \
+            -f log_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+      - name: Terraform Apply (all envs in one run)
+        run: terraform apply -auto-approve
+
+      - name: Read CloudFront URLs from Terraform outputs
+        id: tf_outputs
+        run: |
+          set -euo pipefail
+          DEV_URL=$(terraform output -raw dev_cdn_url || true)
+          STG_URL=$(terraform output -raw staging_cdn_url || true)
+          PRD_URL=$(terraform output -raw prod_cdn_url || true)
+          echo "dev_url=$DEV_URL" >> "$GITHUB_OUTPUT"
+          echo "staging_url=$STG_URL" >> "$GITHUB_OUTPUT"
+          echo "prod_url=$PRD_URL" >> "$GITHUB_OUTPUT"
+
+      # --- Mark success with environment_url (what your App will read) ---
+      - name: Mark Deployments success
+        if: ${{ success() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          gh api -X POST -H "Accept: application/vnd.github+json" \
+            repos/${{ github.repository }}/deployments/${{ steps.create_dep_dev.outputs.DEPLOYMENT_ID }}/statuses \
+            -f state="success" \
+            -f environment_url="${{ steps.tf_outputs.outputs.dev_url }}" \
+            -f log_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          gh api -X POST -H "Accept: application/vnd.github+json" \
+            repos/${{ github.repository }}/deployments/${{ steps.create_dep_staging.outputs.DEPLOYMENT_ID }}/statuses \
+            -f state="success" \
+            -f environment_url="${{ steps.tf_outputs.outputs.staging_url }}" \
+            -f log_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          gh api -X POST -H "Accept: application/vnd.github+json" \
+            repos/${{ github.repository }}/deployments/${{ steps.create_dep_prod.outputs.DEPLOYMENT_ID }}/statuses \
+            -f state="success" \
+            -f environment_url="${{ steps.tf_outputs.outputs.prod_url }}" \
+            -f log_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+      # --- Mark failure with error details (useful for your App/UI) ---
+      - name: Mark Deployments failure
+        if: ${{ failure() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          for ID in \
+            "${{ steps.create_dep_dev.outputs.DEPLOYMENT_ID }}" \
+            "${{ steps.create_dep_staging.outputs.DEPLOYMENT_ID }}" \
+            "${{ steps.create_dep_prod.outputs.DEPLOYMENT_ID }}"
+          do
+            gh api -X POST -H "Accept: application/vnd.github+json" \
+              repos/${{ github.repository }}/deployments/$ID/statuses \
+              -f state="failure" \
+              -f description="Terraform apply failed" \
+              -f log_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          done

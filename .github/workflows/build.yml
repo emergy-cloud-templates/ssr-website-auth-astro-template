@@ -1,0 +1,176 @@
+name: Build
+
+on:
+  # Build on any branch EXCEPT main
+  push:
+    branches-ignore: [ main ]
+    paths:
+      - "website/**"
+
+  # Validate PRs targeting main (and handle merged -> prod)
+  pull_request:
+    branches: [ main ]
+    types: [ opened, synchronize, reopened, closed ]
+
+  # Optional manual trigger
+  workflow_dispatch:
+    inputs:
+      deploy_all:
+        description: "If true, dispatch Deploy to dev, staging, and prod"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  id-token: write
+  contents: write
+  actions: write   # needed to dispatch the Deploy workflow
+
+concurrency:
+  # Prevent duplicate builds for the same SHA (e.g., push + PR synchronize)
+  group: build-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    if: ${{ !(github.event_name == 'push' && github.run_number == 1) }}
+    name: Build & Upload Artifact
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+      PROJECT_ID: ${{ vars.PROJECT_ID }}
+      ROLE_TO_ASSUME: ${{ vars.AWS_BUILD_ROLE_TO_ASSUME || vars.AWS_INFRA_ROLE_TO_ASSUME }}
+      WEBSITE_DIR: 'website'
+      # Use PR head SHA for PR events; otherwise the push SHA
+      COMMIT_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      ARTIFACT_BUCKET: ${{ vars.ARTIFACT_BUCKET || format('{0}-artifacts', vars.PROJECT_ID) }}
+      NODE_VERSION: ${{ vars.NODE_VERSION || '20' }}
+      S3_BUCKET: ${{ vars.S3_BUCKET || format('{0}-artifacts', vars.PROJECT_ID) }}
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      # ---- Build & Upload (runs for push + PR open/sync/reopen; skipped for PR closed) ----
+      - name: Checkout
+        if: >
+          !(github.event_name == 'pull_request' && github.event.action == 'closed')
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        if: >
+          !(github.event_name == 'pull_request' && github.event.action == 'closed')
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Node
+        if: >
+          !(github.event_name == 'pull_request' && github.event.action == 'closed')
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: ${{ env.WEBSITE_DIR }}/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ${{ env.WEBSITE_DIR }}
+        if: >
+          !(github.event_name == 'pull_request' && github.event.action == 'closed')
+        run: npm ci
+
+      - name: Build
+        working-directory: ${{ env.WEBSITE_DIR }}
+        if: >
+          !(github.event_name == 'pull_request' && github.event.action == 'closed')
+        run: |
+          npm run build
+          echo $(git log --format="%H" -n 1) > dist/version.txt
+          npm run prepare:aws
+          cd ./ssr_dist && zip -r ../server.zip .
+
+      - name: Upload to S3 (artifact bucket, keyed by commit SHA)
+        working-directory: ${{ env.WEBSITE_DIR }}
+        if: >
+          !(github.event_name == 'pull_request' && github.event.action == 'closed')
+        run: |
+          set -euo pipefail
+          rm -rf ./dist/server
+          aws s3 cp ./dist/ s3://$S3_BUCKET/builds/$COMMIT_SHA/ --recursive
+          aws s3 cp ./server.zip s3://$S3_BUCKET/builds/$COMMIT_SHA/
+          echo "artifact_s3_uri=s3://${ARTIFACT_BUCKET}/builds/${COMMIT_SHA}" >> "$GITHUB_OUTPUT"
+
+      # ---- Dispatch Deploy(s) based on event ----
+      # Push to non-main -> dev
+      - name: Trigger Deploy (dev) for push
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api \
+            -X POST \
+            -H "Accept: application/vnd.github+json" \
+            "repos/${{ github.repository }}/actions/workflows/deploy.yml/dispatches" \
+            -f ref="${{ github.ref_name }}" \
+            -f inputs[environment]=dev \
+            -f inputs[sha]="${{ env.COMMIT_SHA }}"
+
+      # PR to main (open/sync/reopen) -> staging
+      - name: Trigger Deploy (staging) for PR events
+        if: >
+          github.event_name == 'pull_request' &&
+          github.event.action != 'closed' &&
+          github.event.pull_request.base.ref == 'main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api \
+            -X POST \
+            -H "Accept: application/vnd.github+json" \
+            "repos/${{ github.repository }}/actions/workflows/deploy.yml/dispatches" \
+            -f ref="${{ github.event.pull_request.base.ref }}" \
+            -f inputs[environment]=staging \
+            -f inputs[sha]="${{ env.COMMIT_SHA }}"
+
+      # PR merged to main -> prod (no rebuild)
+      - name: Trigger Deploy (prod) on PR merge
+        if: >
+          github.event_name == 'pull_request' &&
+          github.event.action == 'closed' &&
+          github.event.pull_request.merged == true &&
+          github.event.pull_request.base.ref == 'main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api \
+            -X POST \
+            -H "Accept: application/vnd.github+json" \
+            "repos/${{ github.repository }}/actions/workflows/deploy.yml/dispatches" \
+            -f ref="main" \
+            -f inputs[environment]=prod \
+            -f inputs[sha]="${{ env.COMMIT_SHA }}"
+
+      # Manual run -> dev, or all envs when deploy_all=true
+      - name: Trigger Deploy(s) for manual dispatch
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [[ "${{ inputs.deploy_all }}" == "true" ]]; then
+            ENVS=(dev staging prod)
+          else
+            ENVS=(dev)
+          fi
+          for ENV in "${ENVS[@]}"; do
+            echo "Dispatching Deploy: env=$ENV sha=${COMMIT_SHA}"
+            gh api \
+              -X POST \
+              -H "Accept: application/vnd.github+json" \
+              "repos/${{ github.repository }}/actions/workflows/deploy.yml/dispatches" \
+              -f ref="${{ github.ref_name }}" \
+              -f inputs[environment]="$ENV" \
+              -f inputs[sha]="${{ env.COMMIT_SHA }}"
+          done
