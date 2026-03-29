@@ -11,15 +11,15 @@
     "test:ssr": "npm run build && npm run prepare:aws && cp ssr/lambda-local.js ssr_dist && cd ssr_dist && node test.js"
   },
   "dependencies": {
-    "@astrojs/node": "^9.5.2",
-    "@astrojs/preact": "^4.1.3",
+    "@astrojs/node": "^10.0.4",
+    "@astrojs/preact": "^5.1.0",
     "@iconify-json/heroicons": "^1.2.3",
     "@iconify-json/lucide": "^1.2.86",
     "@nanostores/preact": "^1.0.0",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.91.0",
     "@tailwindcss/vite": "^4.1.18",
-    "astro": "^5.16.15",
+    "astro": "^6.1.1",
     "astro-icon": "^1.1.5",
     "dotenv": "^17.2.3",
     "nanostores": "^1.1.0",

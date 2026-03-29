@@ -1,5 +1,4 @@
-import { useStore } from '@nanostores/preact';
-import { $sidebarCollapsed, toggleSidebar, toggleMobileMenu } from '../../stores/sidebar';
+import { toggleSidebar, toggleMobileMenu } from '../../stores/sidebar';
 import { ProfileDropdown } from './ProfileDropdown';
 import { IconMenu, IconPanelLeftClose, IconPanelLeftOpen } from '../icons';
 
@@ -7,11 +6,10 @@ interface HeaderProps {
   email: string;
   name: string;
   title?: string;
+  collapsed: boolean;
 }
 
-export function Header({ email, name, title }: HeaderProps) {
-  const collapsed = useStore($sidebarCollapsed);
-
+export function Header({ email, name, title, collapsed }: HeaderProps) {
   return (
     <header class="sticky top-0 z-30 bg-white border-b border-gray-200">
       <div class="flex items-center justify-between h-16 px-4 sm:px-6 lg:px-8">

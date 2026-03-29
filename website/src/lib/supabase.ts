@@ -1,10 +1,10 @@
-import { createBrowserClient, createServerClient as createSSRServerClient, parseCookieHeader, serializeCookieHeader } from '@supabase/ssr';
+import { createBrowserClient, createServerClient as createSSRServerClient, parseCookieHeader } from '@supabase/ssr';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import type { AstroCookies } from 'astro';
-import "dotenv/config";
 
-const supabaseUrl = process.env.PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.PUBLIC_SUPABASE_ANON_KEY!;
+// Use import.meta.env so the browser bundle gets PUBLIC_* from Vite/Astro (.env is not applied to process.env on the client).
+const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
 
 // Simple client for basic operations (legacy export)
 export const supabase = createSupabaseClient(supabaseUrl, supabaseAnonKey);
@@ -53,7 +53,7 @@ export function createServerClient(cookies: AstroCookies, requestHeaders?: Heade
         for (const { name, value, options } of cookiesToSet) {
           cookies.set(name, value, {
             path: '/',
-            secure: process.env.ENV === 'prod',
+            secure: import.meta.env.PROD,
             httpOnly: true,
             sameSite: 'lax',
             ...options,

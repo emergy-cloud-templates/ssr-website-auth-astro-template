@@ -1,9 +1,12 @@
 import { useStore } from '@nanostores/preact';
-import { $sidebarCollapsed, $mobileMenuOpen, closeMobileMenu } from '../../stores/sidebar';
+import { $mobileMenuOpen, closeMobileMenu } from '../../stores/sidebar';
 import { IconHome, IconSettings, IconX } from '../icons';
 
 interface SidebarProps {
   currentPath: string;
+  collapsed: boolean;
+  /** After false → true, width/transform transitions run (avoids animating SSR → stored state). */
+  sidebarTransitionEnabled: boolean;
 }
 
 interface NavItem {
@@ -22,8 +25,7 @@ const icons = {
   settings: IconSettings,
 };
 
-export function Sidebar({ currentPath }: SidebarProps) {
-  const collapsed = useStore($sidebarCollapsed);
+export function Sidebar({ currentPath, collapsed, sidebarTransitionEnabled }: SidebarProps) {
   const mobileOpen = useStore($mobileMenuOpen);
 
   const isActive = (href: string) => {
@@ -45,8 +47,11 @@ export function Sidebar({ currentPath }: SidebarProps) {
 
       {/* Sidebar */}
       <aside
-        class={`fixed inset-y-0 left-0 z-50 flex flex-col bg-white border-r border-gray-200 transition-all duration-300 ease-in-out
-          ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
+        class={`fixed inset-y-0 left-0 z-50 flex flex-col bg-white border-r border-gray-200 ease-in-out
+          ${sidebarTransitionEnabled
+            ? 'duration-300 max-lg:transition-transform lg:transition-[width] lg:duration-300'
+            : 'max-lg:transition-none lg:transition-none'}
+          ${mobileOpen ? 'max-lg:translate-x-0' : 'max-lg:-translate-x-full'}
           lg:translate-x-0
           ${collapsed ? 'lg:w-20' : 'lg:w-64'}
           w-64
