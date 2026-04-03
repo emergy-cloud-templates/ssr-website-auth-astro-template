@@ -55,7 +55,7 @@ export function ProfileDropdown({ email, name }: ProfileDropdownProps) {
 
       {/* Dropdown menu */}
       {open && (
-        <div class="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg ring-1 ring-black ring-opacity-5 py-1 z-50">
+        <div class="absolute right-0 mt-2 w-56 rounded-lg bg-white py-1 z-50 shadow-lg shadow-gray-900/5 ring-1 ring-gray-950/10">
           {/* User info (mobile) */}
           <div class="sm:hidden px-4 py-3 border-b border-gray-100">
             <p class="text-sm font-medium text-gray-900 truncate">{name || 'User'}</p>
