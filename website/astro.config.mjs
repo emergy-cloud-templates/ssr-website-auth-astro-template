@@ -12,15 +12,42 @@ import icon from "astro-icon";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+const devUrl = process.env.DEV_URL;
+
+function devUrlBanner() {
+  return {
+    name: "dev-url-banner",
+    hooks: {
+      "astro:server:start": () => {
+        if (process.env.DEV_URL) {
+          console.log(`\n  \x1b[32m🌐 Public\x1b[0m  ${process.env.DEV_URL}/\n`);
+        }
+      },
+    },
+  };
+}
+
 // https://astro.build/config
 export default defineConfig({
   output: "server",
+
+  ...(devUrl && { site: devUrl }),
+
+  server: {
+    host: true,
+    port: 4321,
+    allowedHosts: [".dvk.emergy.cloud"],
+  },
 
   adapter: node({
     mode: "middleware",
   }),
 
   vite: {
+    server: {
+      ...(devUrl && { hmr: { protocol: "wss", clientPort: 443 } }),
+    },
+
     resolve: {
       alias: {
         "~": path.resolve(__dirname, "./src"),
@@ -30,5 +57,5 @@ export default defineConfig({
     plugins: [tailwindcss()],
   },
 
-  integrations: [preact(), icon()],
+  integrations: [preact(), icon(), devUrlBanner()],
 });
