@@ -1,13 +1,13 @@
 variable "env_config" {
   description = "Environment-specific configuration"
   type = object({
-    environment = string
-    base_domain = string
-    project_id  = string
-    public_supabase_url     = string
+    environment              = string
+    base_domain              = string
+    project_id               = string
+    public_supabase_url      = string
     public_supabase_anon_key = string
   })
-  
+
   validation {
     condition     = contains(["dev", "staging", "prod"], var.env_config.environment)
     error_message = "environment must be one of: dev, staging, prod."

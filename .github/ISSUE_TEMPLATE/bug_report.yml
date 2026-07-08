@@ -1,0 +1,70 @@
+name: Bug report
+description: Report a reproducible problem in the template.
+title: "Bug: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include secrets, Terraform state, private domains, or production logs.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened?
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Include commands, routes, or workflow names.
+      placeholder: |
+        1. Run ...
+        2. Visit ...
+        3. See ...
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Astro app
+        - Supabase auth
+        - Middleware or routing
+        - AWS deployment
+        - Terraform
+        - GitHub Actions
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include versions when relevant.
+      placeholder: |
+        Node:
+        pnpm:
+        Terraform:
+        AWS region:
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Paste relevant logs with secrets removed.
+      render: shell
+    validations:
+      required: false

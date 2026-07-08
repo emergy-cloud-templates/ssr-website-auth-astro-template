@@ -4,7 +4,7 @@ resource "aws_api_gateway_rest_api" "website_ssr" {
   endpoint_configuration {
     types = ["REGIONAL"]
   }
-  minimum_compression_size = 1  
+  minimum_compression_size = 1
 }
 
 resource "aws_api_gateway_deployment" "website_ssr" {

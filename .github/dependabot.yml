@@ -1,0 +1,25 @@
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - dependencies
+      - github-actions
+
+  - package-ecosystem: "npm"
+    directory: "/website"
+    schedule:
+      interval: "weekly"
+    labels:
+      - dependencies
+      - website
+
+  - package-ecosystem: "npm"
+    directory: "/infrastructure/lambda_layer/nodejs"
+    schedule:
+      interval: "weekly"
+    labels:
+      - dependencies
+      - lambda-layer

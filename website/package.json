@@ -1,14 +1,22 @@
 {
-  "name": "website",
+  "name": "ssr-website-auth-astro-template",
   "type": "module",
   "version": "0.0.1",
+  "description": "Open-source Astro SSR website template with Supabase authentication and AWS deployment infrastructure.",
+  "license": "MIT",
+  "packageManager": "pnpm@10.20.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/emergy-cloud-templates/ssr-website-auth-astro-template.git",
+    "directory": "website"
+  },
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",
     "prepare:aws": "rm -rf ssr_dist && mkdir -p ssr_dist/dist && cp -r dist/server ssr_dist/dist/ && cp ssr/lambda.js ssr_dist && cp ssr/package.json ssr_dist && cp ssr/test.js ssr_dist",
-    "test:ssr": "npm run build && npm run prepare:aws && cp ssr/lambda-local.js ssr_dist && cd ssr_dist && node test.js"
+    "test:ssr": "pnpm run build && pnpm run prepare:aws && cp ssr/lambda-local.js ssr_dist && cd ssr_dist && node test.js"
   },
   "dependencies": {
     "@astrojs/node": "^11.0.0",
