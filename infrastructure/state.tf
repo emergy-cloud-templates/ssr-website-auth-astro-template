@@ -7,7 +7,7 @@ data "aws_caller_identity" "current" {}
 
 # Set the AWS Provider to assume the role to the env account
 provider "aws" {
-  region  = "us-east-1"
+  region = "us-east-1"
 }
 
 # Config performed with CLI

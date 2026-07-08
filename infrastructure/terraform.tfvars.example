@@ -1,0 +1,15 @@
+aws_account_number = "123456789012"
+project_id         = "example-project"
+
+# Leave these empty to use CloudFront's default domain.
+base_domain         = ""
+aws_website_acm_arn = ""
+
+prod_supabase_url      = "https://prod-project.supabase.co"
+prod_supabase_anon_key = "prod-anon-key"
+
+dev_supabase_url      = "https://dev-project.supabase.co"
+dev_supabase_anon_key = "dev-anon-key"
+
+staging_supabase_url      = "https://staging-project.supabase.co"
+staging_supabase_anon_key = "staging-anon-key"

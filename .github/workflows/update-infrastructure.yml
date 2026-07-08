@@ -54,6 +54,19 @@ jobs:
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.20.0
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ vars.NODE_VERSION || '20' }}
+          cache: pnpm
+          cache-dependency-path: website/pnpm-lock.yaml
+
       - name: Terraform Init (S3 backend with DynamoDB lock)
         run: |
           set -euo pipefail
@@ -78,9 +91,9 @@ jobs:
         working-directory: 'website'
         run: |
           set -euo pipefail
-          npm ci
-          npm run build
-          npm run prepare:aws
+          pnpm install --frozen-lockfile
+          pnpm run build
+          pnpm run prepare:aws
 
       # --- Deployments: create + mark in_progress ---
       - name: Create Deployment (dev)

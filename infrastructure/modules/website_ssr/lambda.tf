@@ -18,7 +18,7 @@ resource "aws_lambda_function" "website_ssr" {
       PUBLIC_SUPABASE_ANON_KEY = var.env_config.public_supabase_anon_key
     }
   }
-  
+
   tags = {
     Name      = "${var.env_config.project_id} ${var.env_config.environment} website ssr"
     env       = var.env_config.environment

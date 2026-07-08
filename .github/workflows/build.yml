@@ -66,29 +66,37 @@ jobs:
           role-to-assume: ${{ env.ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Setup pnpm
+        if: >
+          !(github.event_name == 'pull_request' && github.event.action == 'closed')
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.20.0
+          run_install: false
+
       - name: Setup Node
         if: >
           !(github.event_name == 'pull_request' && github.event.action == 'closed')
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-          cache-dependency-path: ${{ env.WEBSITE_DIR }}/package-lock.json
+          cache: pnpm
+          cache-dependency-path: ${{ env.WEBSITE_DIR }}/pnpm-lock.yaml
 
       - name: Install dependencies
         working-directory: ${{ env.WEBSITE_DIR }}
         if: >
           !(github.event_name == 'pull_request' && github.event.action == 'closed')
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Build
         working-directory: ${{ env.WEBSITE_DIR }}
         if: >
           !(github.event_name == 'pull_request' && github.event.action == 'closed')
         run: |
-          npm run build
+          pnpm run build
           echo $(git log --format="%H" -n 1) > dist/version.txt
-          npm run prepare:aws
+          pnpm run prepare:aws
           cd ./ssr_dist && zip -r ../server.zip .
 
       - name: Upload to S3 (artifact bucket, keyed by commit SHA)

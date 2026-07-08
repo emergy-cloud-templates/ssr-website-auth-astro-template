@@ -1,14 +1,19 @@
 {
-  "name": "ssr",
+  "name": "ssr-website-auth-astro-template-lambda",
   "version": "1.0.0",
   "type": "module",
   "main": "lambda.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "astro",
+    "ssr",
+    "lambda",
+    "supabase"
+  ],
+  "author": "Mathieu Lescaudron",
+  "license": "MIT",
   "dependencies": {},
-  "description": ""
+  "description": "Lambda wrapper package for the Astro SSR template."
 }

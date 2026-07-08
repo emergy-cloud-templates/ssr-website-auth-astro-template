@@ -1,6 +1,16 @@
 
 .terraform
 .terraform*
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+*.tfvars
+*.tfvars.json
 
 # build output
 dist/
@@ -21,7 +31,8 @@ pnpm-debug.log*
 
 # environment variables
 .env
-.env.production
+.env.*
+!.env.example
 .mongodb.env
 # macOS-specific files
 .DS_Store
@@ -37,4 +48,3 @@ ai/**/*.xml
 ai/**/*.html
 *.zip
 ssr_dist/
-pnpm-lock.yaml

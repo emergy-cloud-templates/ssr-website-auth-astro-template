@@ -8,13 +8,13 @@ locals {
   # prod -> www.base_domain (+ apex redirect)
   primary_host = var.env_config.environment == "prod" ? (
     var.env_config.base_domain == "" ? "" : "www.${var.env_config.base_domain}"
-  ) : (
+    ) : (
     var.env_config.base_domain == "" ? "" : "${var.env_config.environment}.${var.env_config.base_domain}"
   )
 
-  apex_host      = var.env_config.base_domain
-  include_apex   = var.env_config.environment == "prod" && local.use_custom_domain
-  aliases        = local.use_custom_domain ? (
+  apex_host    = var.env_config.base_domain
+  include_apex = var.env_config.environment == "prod" && local.use_custom_domain
+  aliases = local.use_custom_domain ? (
     local.include_apex ? [local.primary_host, local.apex_host] : [local.primary_host]
   ) : []
 
@@ -26,9 +26,9 @@ resource "aws_s3_bucket" "website" {
   bucket        = "${var.env_config.project_id}-${var.env_config.environment}-website"
   force_destroy = true
   tags = {
-    Name       = "${var.env_config.project_id} ${var.env_config.environment} website"
-    env        = var.env_config.environment
-    projectId  = var.env_config.project_id
+    Name      = "${var.env_config.project_id} ${var.env_config.environment} website"
+    env       = var.env_config.environment
+    projectId = var.env_config.project_id
   }
 }
 
@@ -85,7 +85,7 @@ resource "aws_cloudfront_distribution" "cdn" {
     cached_methods   = ["GET", "HEAD"]
     target_origin_id = "s3-origin-${aws_s3_bucket.website.id}"
 
-    cache_policy_id = "658327ea-f89d-4fab-a63d-7e88639e58f6"
+    cache_policy_id            = "658327ea-f89d-4fab-a63d-7e88639e58f6"
     response_headers_policy_id = aws_cloudfront_response_headers_policy.assets_secure.id
 
     compress               = true
@@ -106,7 +106,7 @@ resource "aws_cloudfront_distribution" "cdn" {
     cached_methods   = ["GET", "HEAD"]
     target_origin_id = "s3-origin-${aws_s3_bucket.website.id}"
 
-    cache_policy_id = "658327ea-f89d-4fab-a63d-7e88639e58f6"
+    cache_policy_id            = "658327ea-f89d-4fab-a63d-7e88639e58f6"
     response_headers_policy_id = aws_cloudfront_response_headers_policy.assets_secure.id
 
 
@@ -127,7 +127,7 @@ resource "aws_cloudfront_distribution" "cdn" {
     cached_methods   = ["GET", "HEAD"]
     target_origin_id = "s3-origin-${aws_s3_bucket.website.id}"
 
-    cache_policy_id = "658327ea-f89d-4fab-a63d-7e88639e58f6"
+    cache_policy_id            = "658327ea-f89d-4fab-a63d-7e88639e58f6"
     response_headers_policy_id = aws_cloudfront_response_headers_policy.assets_secure.id
 
     compress               = true
@@ -147,7 +147,7 @@ resource "aws_cloudfront_distribution" "cdn" {
     cached_methods   = ["GET", "HEAD"]
     target_origin_id = "s3-origin-${aws_s3_bucket.website.id}"
 
-    cache_policy_id = "658327ea-f89d-4fab-a63d-7e88639e58f6"
+    cache_policy_id            = "658327ea-f89d-4fab-a63d-7e88639e58f6"
     response_headers_policy_id = aws_cloudfront_response_headers_policy.assets_secure.id
 
     compress               = true
@@ -168,7 +168,7 @@ resource "aws_cloudfront_distribution" "cdn" {
     cached_methods   = ["GET", "HEAD"]
     target_origin_id = "s3-origin-${aws_s3_bucket.website.id}"
 
-    cache_policy_id = "658327ea-f89d-4fab-a63d-7e88639e58f6"
+    cache_policy_id            = "658327ea-f89d-4fab-a63d-7e88639e58f6"
     response_headers_policy_id = aws_cloudfront_response_headers_policy.assets_secure.id
 
     compress               = true
@@ -190,8 +190,8 @@ resource "aws_cloudfront_distribution" "cdn" {
 
     cache_policy_id = "658327ea-f89d-4fab-a63d-7e88639e58f6"
 
-    compress               = true
-    viewer_protocol_policy = "redirect-to-https"
+    compress                   = true
+    viewer_protocol_policy     = "redirect-to-https"
     response_headers_policy_id = aws_cloudfront_response_headers_policy.assets_secure.id
 
     dynamic "function_association" {
@@ -208,7 +208,7 @@ resource "aws_cloudfront_distribution" "cdn" {
     cached_methods   = ["GET", "HEAD"]
     target_origin_id = "s3-origin-${aws_s3_bucket.website.id}"
 
-    cache_policy_id = "658327ea-f89d-4fab-a63d-7e88639e58f6"
+    cache_policy_id            = "658327ea-f89d-4fab-a63d-7e88639e58f6"
     response_headers_policy_id = aws_cloudfront_response_headers_policy.assets_secure.id
 
     compress               = true
@@ -228,7 +228,7 @@ resource "aws_cloudfront_distribution" "cdn" {
     cached_methods   = ["GET", "HEAD"]
     target_origin_id = "s3-origin-${aws_s3_bucket.website.id}"
 
-    cache_policy_id = "658327ea-f89d-4fab-a63d-7e88639e58f6"
+    cache_policy_id            = "658327ea-f89d-4fab-a63d-7e88639e58f6"
     response_headers_policy_id = aws_cloudfront_response_headers_policy.assets_secure.id
 
     compress               = true
@@ -243,13 +243,13 @@ resource "aws_cloudfront_distribution" "cdn" {
     }
   }
 
-  is_ipv6_enabled     = true
+  is_ipv6_enabled = true
 
   default_cache_behavior {
-    allowed_methods  = ["GET", "HEAD", "OPTIONS", "POST", "PUT", "PATCH", "DELETE"]
-    cached_methods   = ["GET", "HEAD"]
-    target_origin_id = aws_api_gateway_rest_api.website_ssr.id
-    cache_policy_id  = aws_cloudfront_cache_policy.website_ssr.id
+    allowed_methods            = ["GET", "HEAD", "OPTIONS", "POST", "PUT", "PATCH", "DELETE"]
+    cached_methods             = ["GET", "HEAD"]
+    target_origin_id           = aws_api_gateway_rest_api.website_ssr.id
+    cache_policy_id            = aws_cloudfront_cache_policy.website_ssr.id
     response_headers_policy_id = aws_cloudfront_response_headers_policy.html_secure.id
 
     min_ttl                = 0
@@ -300,11 +300,11 @@ resource "aws_s3_bucket_policy" "allow_cloudfront_oac" {
     Version = "2012-10-17",
     Statement = [
       {
-        Sid       : "AllowCloudFrontServicePrincipalReadOnly",
-        Effect    : "Allow",
-        Principal : { Service: "cloudfront.amazonaws.com" },
-        Action    : ["s3:GetObject"],
-        Resource  : "${aws_s3_bucket.website.arn}/*",
+        Sid : "AllowCloudFrontServicePrincipalReadOnly",
+        Effect : "Allow",
+        Principal : { Service : "cloudfront.amazonaws.com" },
+        Action : ["s3:GetObject"],
+        Resource : "${aws_s3_bucket.website.arn}/*",
         Condition : {
           StringEquals : {
             "AWS:SourceArn" : aws_cloudfront_distribution.cdn.arn
