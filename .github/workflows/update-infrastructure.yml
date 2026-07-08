@@ -55,7 +55,7 @@ jobs:
           terraform_version: ${{ env.TF_VERSION }}
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 10.20.0
           run_install: false
