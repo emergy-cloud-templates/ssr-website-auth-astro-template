@@ -61,7 +61,7 @@ jobs:
       - name: Configure AWS credentials (OIDC)
         if: >
           !(github.event_name == 'pull_request' && github.event.action == 'closed')
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ env.ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
