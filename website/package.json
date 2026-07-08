@@ -19,7 +19,7 @@
     "test:ssr": "pnpm run build && pnpm run prepare:aws && cp ssr/lambda-local.js ssr_dist && cd ssr_dist && node test.js"
   },
   "dependencies": {
-    "@astrojs/node": "^11.0.0",
+    "@astrojs/node": "^11.0.2",
     "@astrojs/preact": "^6.0.0",
     "@iconify-json/heroicons": "^1.2.3",
     "@iconify-json/lucide": "^1.2.101",
