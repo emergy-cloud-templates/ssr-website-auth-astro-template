@@ -1,3 +1,28 @@
+# -----------------------------------------------------------------------------
+# emergy.cloud CI/CD reference - Update Infrastructure (Astro)
+#
+# Applies the repository's terraform (infrastructure/) against the project's
+# AWS account: website buckets, CloudFront distributions, and - for SSR
+# templates - the Lambda that serves rendered pages. Runs on pushes to main
+# that touch infrastructure/, or manually. The same file works for every
+# Astro template - SSR build steps are detected at runtime.
+#
+# Repository variables maintained by the emergy platform:
+#   PROJECT_ID, AWS_REGION, AWS_ACCOUNT_ID, AWS_INFRA_ROLE_TO_ASSUME,
+#   TF_BACKEND_BUCKET, TF_STATE_KEY_PREFIX, ENVS,
+#   AWS_WEBSITE_ACM_ARN / AWS_WEBSITE_ACM_NAME (when a certificate exists)
+# Optional overrides you may set yourself:
+#   NODE_VERSION (default 24), TF_VERSION, TF_DDB_TABLE, INFRA_DIR
+#
+# GitHub Deployments: one deployment per enabled environment (ENVS) is
+# created, marked in progress, then resolved to success/failure with the
+# environment URL read from the terraform output named <environment>_cdn_url.
+# The emergy platform reads these deployments to surface environment URLs.
+#
+# CONTRACT - do not rename this file
+# (.github/workflows/update-infrastructure.yml); the emergy platform matches
+# infrastructure runs by that path.
+# -----------------------------------------------------------------------------
 name: Update Infrastructure
 
 on:
@@ -8,6 +33,8 @@ on:
 
 jobs:
   update:
+    # Skip the very first push (the commit that creates the repo from the
+    # template) - the AWS account is not provisioned yet at that point.
     if: ${{ !(github.event_name == 'push' && github.run_number == 1) }}
 
     runs-on: ubuntu-latest
@@ -22,8 +49,12 @@ jobs:
       TF_DDB_TABLE: ${{ vars.TF_DDB_TABLE || 'terraform-state-lock' }}
       TF_STATE_KEY_PREFIX: ${{ vars.TF_STATE_KEY_PREFIX || 'default-project' }}
       ROLE_TO_ASSUME: ${{ vars.AWS_INFRA_ROLE_TO_ASSUME }}
+      NODE_VERSION: ${{ vars.NODE_VERSION || '24' }}
 
-      # Pass-thru TF vars your root uses
+      # Enabled environments - maintained by the platform
+      ENVS: ${{ vars.ENVS || 'dev,prod' }}
+
+      # Pass-thru TF vars the terraform root uses
       TF_VAR_aws_account_number: ${{ vars.AWS_ACCOUNT_ID }}
       TF_VAR_project_id: ${{ vars.PROJECT_ID }}
       TF_VAR_base_domain: ${{ vars.AWS_WEBSITE_ACM_NAME }}
@@ -41,31 +72,45 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ env.ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
+      # SSR templates (a "prepare:aws" script in website/package.json) need a
+      # server bundle and a Lambda layer for terraform to package.
+      - name: Detect project shape
+        id: shape
+        working-directory: .
+        run: |
+          set -euo pipefail
+          PM=npm; LOCKFILE=package-lock.json
+          if [ -f website/pnpm-lock.yaml ]; then PM=pnpm; LOCKFILE=pnpm-lock.yaml; fi
+          SSR=false
+          if jq -e '.scripts["prepare:aws"]' website/package.json >/dev/null 2>&1; then SSR=true; fi
+          echo "Detected: pm=$PM ssr=$SSR"
+          { echo "pm=$PM"; echo "lockfile=$LOCKFILE"; echo "ssr=$SSR"; } >> "$GITHUB_OUTPUT"
+
+      # pnpm version comes from the "packageManager" field in package.json.
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.20.0
-          run_install: false
+        if: steps.shape.outputs.ssr == 'true' && steps.shape.outputs.pm == 'pnpm'
+        uses: pnpm/action-setup@v6
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        if: steps.shape.outputs.ssr == 'true'
+        uses: actions/setup-node@v7
         with:
-          node-version: ${{ vars.NODE_VERSION || '20' }}
-          cache: pnpm
-          cache-dependency-path: website/pnpm-lock.yaml
+          node-version: ${{ env.NODE_VERSION }}
+          cache: ${{ steps.shape.outputs.pm }}
+          cache-dependency-path: website/${{ steps.shape.outputs.lockfile }}
 
       - name: Terraform Init (S3 backend with DynamoDB lock)
         run: |
@@ -77,7 +122,8 @@ jobs:
             -backend-config="region=${AWS_REGION}" \
             -backend-config="dynamodb_table=${TF_DDB_TABLE}"
 
-      - name: Create layer
+      - name: Build Lambda layer (SSR runtime dependencies)
+        if: steps.shape.outputs.ssr == 'true'
         run: |
           set -euo pipefail
           cd lambda_layer/nodejs
@@ -87,132 +133,85 @@ jobs:
           cd ..
           zip -r lambda_layer_website_ssr.zip nodejs
 
-      - name: Create ssr_dist directory
-        working-directory: 'website'
+      - name: Build SSR server bundle
+        if: steps.shape.outputs.ssr == 'true'
+        working-directory: website
         run: |
           set -euo pipefail
-          pnpm install --frozen-lockfile
-          pnpm run build
-          pnpm run prepare:aws
+          if [ "${{ steps.shape.outputs.pm }}" = "pnpm" ]; then
+            pnpm install --frozen-lockfile
+          else
+            npm ci
+          fi
+          "${{ steps.shape.outputs.pm }}" run build
+          "${{ steps.shape.outputs.pm }}" run prepare:aws
 
-      # --- Deployments: create + mark in_progress ---
-      - name: Create Deployment (dev)
-        id: create_dep_dev
+      # One GitHub Deployment per enabled environment, all marked in progress
+      # while terraform runs. The id map travels to the status steps below.
+      - name: Create GitHub Deployments (in progress)
+        id: deployments
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          body=$(jq -n --arg ref "${{ github.sha }}" '
-            { ref: $ref, auto_merge: false, environment: "dev", required_contexts: [] }')
-          resp=$(echo "$body" | gh api -X POST \
-            -H "Accept: application/vnd.github+json" \
-            -H "Content-Type: application/json" \
-            repos/${{ github.repository }}/deployments --input -)
-          echo "DEPLOYMENT_ID=$(echo "$resp" | jq -r .id)" >> "$GITHUB_OUTPUT"
+          IDS='{}'
+          IFS=',' read -ra ENV_LIST <<< "${ENVS}"
+          for E in "${ENV_LIST[@]}"; do
+            body=$(jq -n --arg ref "${{ github.sha }}" --arg env "$E" '
+              { ref: $ref, auto_merge: false, environment: $env, required_contexts: [] }')
+            resp=$(echo "$body" | gh api -X POST \
+              -H "Accept: application/vnd.github+json" \
+              -H "Content-Type: application/json" \
+              repos/${{ github.repository }}/deployments --input -)
+            ID=$(echo "$resp" | jq -r .id)
+            gh api -X POST -H "Accept: application/vnd.github+json" \
+              repos/${{ github.repository }}/deployments/$ID/statuses \
+              -f state="in_progress" \
+              -f log_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            IDS=$(echo "$IDS" | jq -c --arg env "$E" --argjson id "$ID" '. + {($env): $id}')
+          done
+          echo "ids=$IDS" >> "$GITHUB_OUTPUT"
 
-      - name: Create Deployment (staging)
-        id: create_dep_staging
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          body=$(jq -n --arg ref "${{ github.sha }}" '
-            { ref: $ref, auto_merge: false, environment: "staging", required_contexts: [] }')
-          resp=$(echo "$body" | gh api -X POST \
-            -H "Accept: application/vnd.github+json" \
-            -H "Content-Type: application/json" \
-            repos/${{ github.repository }}/deployments --input -)
-          echo "DEPLOYMENT_ID=$(echo "$resp" | jq -r .id)" >> "$GITHUB_OUTPUT"
-
-      - name: Create Deployment (prod)
-        id: create_dep_prod
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          body=$(jq -n --arg ref "${{ github.sha }}" '
-            { ref: $ref, auto_merge: false, environment: "prod", required_contexts: [] }')
-          resp=$(echo "$body" | gh api -X POST \
-            -H "Accept: application/vnd.github+json" \
-            -H "Content-Type: application/json" \
-            repos/${{ github.repository }}/deployments --input -)
-          echo "DEPLOYMENT_ID=$(echo "$resp" | jq -r .id)" >> "$GITHUB_OUTPUT"
-
-      - name: Mark Deployments in_progress
-        if: always()
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-
-          gh api -X POST -H "Accept: application/vnd.github+json" \
-            repos/${{ github.repository }}/deployments/${{ steps.create_dep_dev.outputs.DEPLOYMENT_ID }}/statuses \
-            -f state="in_progress" \
-            -f log_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-
-          gh api -X POST -H "Accept: application/vnd.github+json" \
-            repos/${{ github.repository }}/deployments/${{ steps.create_dep_staging.outputs.DEPLOYMENT_ID }}/statuses \
-            -f state="in_progress" \
-            -f log_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-
-          gh api -X POST -H "Accept: application/vnd.github+json" \
-            repos/${{ github.repository }}/deployments/${{ steps.create_dep_prod.outputs.DEPLOYMENT_ID }}/statuses \
-            -f state="in_progress" \
-            -f log_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-
-      - name: Terraform Apply (all envs in one run)
+      # The terraform root manages every enabled environment in one state -
+      # a single apply updates them all.
+      - name: Terraform Apply
         run: terraform apply -auto-approve
 
-      - name: Read CloudFront URLs from Terraform outputs
-        id: tf_outputs
-        run: |
-          set -euo pipefail
-          DEV_URL=$(terraform output -raw dev_cdn_url || true)
-          STG_URL=$(terraform output -raw staging_cdn_url || true)
-          PRD_URL=$(terraform output -raw prod_cdn_url || true)
-          echo "dev_url=$DEV_URL" >> "$GITHUB_OUTPUT"
-          echo "staging_url=$STG_URL" >> "$GITHUB_OUTPUT"
-          echo "prod_url=$PRD_URL" >> "$GITHUB_OUTPUT"
-
-      # --- Mark success with environment_url (what your App will read) ---
+      # Resolve each deployment with its URL (terraform output
+      # <environment>_cdn_url). The emergy platform reads the environment_url.
       - name: Mark Deployments success
         if: ${{ success() }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          IDS='${{ steps.deployments.outputs.ids }}'
+          [ -n "$IDS" ] || IDS='{}'
+          IFS=',' read -ra ENV_LIST <<< "${ENVS}"
+          for E in "${ENV_LIST[@]}"; do
+            ID=$(echo "$IDS" | jq -r --arg env "$E" '.[$env] // empty')
+            [ -n "$ID" ] || continue
+            URL=$(terraform output -raw "${E}_cdn_url" 2>/dev/null || true)
+            args=(-f state="success")
+            if [ -n "$URL" ]; then args+=(-f environment_url="$URL"); fi
+            args+=(-f log_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}")
+            gh api -X POST -H "Accept: application/vnd.github+json" \
+              repos/${{ github.repository }}/deployments/$ID/statuses "${args[@]}"
+          done
 
-          gh api -X POST -H "Accept: application/vnd.github+json" \
-            repos/${{ github.repository }}/deployments/${{ steps.create_dep_dev.outputs.DEPLOYMENT_ID }}/statuses \
-            -f state="success" \
-            -f environment_url="${{ steps.tf_outputs.outputs.dev_url }}" \
-            -f log_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-
-          gh api -X POST -H "Accept: application/vnd.github+json" \
-            repos/${{ github.repository }}/deployments/${{ steps.create_dep_staging.outputs.DEPLOYMENT_ID }}/statuses \
-            -f state="success" \
-            -f environment_url="${{ steps.tf_outputs.outputs.staging_url }}" \
-            -f log_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-
-          gh api -X POST -H "Accept: application/vnd.github+json" \
-            repos/${{ github.repository }}/deployments/${{ steps.create_dep_prod.outputs.DEPLOYMENT_ID }}/statuses \
-            -f state="success" \
-            -f environment_url="${{ steps.tf_outputs.outputs.prod_url }}" \
-            -f log_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-
-      # --- Mark failure with error details (useful for your App/UI) ---
       - name: Mark Deployments failure
         if: ${{ failure() }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-
-          for ID in \
-            "${{ steps.create_dep_dev.outputs.DEPLOYMENT_ID }}" \
-            "${{ steps.create_dep_staging.outputs.DEPLOYMENT_ID }}" \
-            "${{ steps.create_dep_prod.outputs.DEPLOYMENT_ID }}"
-          do
+          # Empty when the run failed before the deployments step.
+          IDS='${{ steps.deployments.outputs.ids }}'
+          [ -n "$IDS" ] || IDS='{}'
+          IFS=',' read -ra ENV_LIST <<< "${ENVS}"
+          for E in "${ENV_LIST[@]}"; do
+            ID=$(echo "$IDS" | jq -r --arg env "$E" '.[$env] // empty')
+            [ -n "$ID" ] || continue
             gh api -X POST -H "Accept: application/vnd.github+json" \
               repos/${{ github.repository }}/deployments/$ID/statuses \
               -f state="failure" \

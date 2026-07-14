@@ -1,22 +1,46 @@
+# -----------------------------------------------------------------------------
+# emergy.cloud CI/CD reference - Build (Astro)
+#
+# One build per commit: installs, builds, and uploads the site to the account's
+# artifact bucket keyed by commit SHA, then dispatches the Deploy workflow for
+# the environment the git event targets. The same file works for every Astro
+# template - SSR extras (Lambda bundle) are detected at runtime, not hardcoded.
+#
+# Repository variables maintained by the emergy platform:
+#   PROJECT_ID, AWS_REGION, AWS_ACCOUNT_ID, AWS_INFRA_ROLE_TO_ASSUME, ENVS
+# Optional overrides you may set yourself:
+#   NODE_VERSION (default 24), ARTIFACT_BUCKET (default <PROJECT_ID>-artifacts),
+#   AWS_BUILD_ROLE_TO_ASSUME (defaults to the infra role)
+#
+# ENVS is the comma-separated list of this project's enabled environments.
+# Events that target an environment not present in ENVS build normally but
+# skip the deploy dispatch.
+#
+# CONTRACT - the platform tracks this pipeline by convention. Do not rename
+# this file (.github/workflows/build.yml) or the deploy dispatch inputs
+# (environment, sha, deploy_all); the platform dispatches and parses them.
+# -----------------------------------------------------------------------------
 name: Build
 
 on:
-  # Build on any branch EXCEPT main
+  # Build on any branch EXCEPT main (main is deployed via the PR merge event).
   push:
     branches-ignore: [ main ]
     paths:
       - "website/**"
 
-  # Validate PRs targeting main (and handle merged -> prod)
+  # Validate PRs targeting main; the merged PR event promotes the same
+  # artifact (no rebuild).
   pull_request:
     branches: [ main ]
     types: [ opened, synchronize, reopened, closed ]
 
-  # Optional manual trigger
+  # Manual trigger: deploys the first pipeline stage, or every enabled
+  # environment when deploy_all is set.
   workflow_dispatch:
     inputs:
       deploy_all:
-        description: "If true, dispatch Deploy to dev, staging, and prod"
+        description: "If true, dispatch Deploy to every enabled environment (ENVS)"
         required: false
         default: false
         type: boolean
@@ -27,12 +51,14 @@ permissions:
   actions: write   # needed to dispatch the Deploy workflow
 
 concurrency:
-  # Prevent duplicate builds for the same SHA (e.g., push + PR synchronize)
+  # Prevent duplicate builds for the same SHA (e.g., push + PR synchronize).
   group: build-${{ github.event.pull_request.head.sha || github.sha }}
   cancel-in-progress: true
 
 jobs:
   build:
+    # Skip the very first push (the commit that creates the repo from the
+    # template) - the AWS account is not provisioned yet at that point.
     if: ${{ !(github.event_name == 'push' && github.run_number == 1) }}
     name: Build & Upload Artifact
     runs-on: ubuntu-latest
@@ -41,63 +67,92 @@ jobs:
       PROJECT_ID: ${{ vars.PROJECT_ID }}
       ROLE_TO_ASSUME: ${{ vars.AWS_BUILD_ROLE_TO_ASSUME || vars.AWS_INFRA_ROLE_TO_ASSUME }}
       WEBSITE_DIR: 'website'
-      # Use PR head SHA for PR events; otherwise the push SHA
+      # Use the PR head SHA for PR events; otherwise the push SHA. This is the
+      # artifact key the Deploy workflow receives.
       COMMIT_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
       ARTIFACT_BUCKET: ${{ vars.ARTIFACT_BUCKET || format('{0}-artifacts', vars.PROJECT_ID) }}
-      NODE_VERSION: ${{ vars.NODE_VERSION || '20' }}
-      S3_BUCKET: ${{ vars.S3_BUCKET || format('{0}-artifacts', vars.PROJECT_ID) }}
+      NODE_VERSION: ${{ vars.NODE_VERSION || '24' }}
+      ENVS: ${{ vars.ENVS || 'dev,prod' }}
 
     defaults:
       run:
         shell: bash
 
     steps:
-      # ---- Build & Upload (runs for push + PR open/sync/reopen; skipped for PR closed) ----
+      # ---- Build & upload (runs for push + PR open/sync/reopen; skipped for
+      # PR closed, which only promotes the already-built artifact) ----
       - name: Checkout
         if: >
           !(github.event_name == 'pull_request' && github.event.action == 'closed')
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+
+      # The same workflow serves every Astro template:
+      #   pm   - pnpm when a pnpm lockfile is present, npm otherwise
+      #   ssr  - templates with a "prepare:aws" script ship a Lambda server
+      #          bundle (server.zip) next to the static assets
+      - name: Detect project shape
+        id: shape
+        if: >
+          !(github.event_name == 'pull_request' && github.event.action == 'closed')
+        run: |
+          set -euo pipefail
+          PM=npm; LOCKFILE=package-lock.json
+          if [ -f "${WEBSITE_DIR}/pnpm-lock.yaml" ]; then PM=pnpm; LOCKFILE=pnpm-lock.yaml; fi
+          SSR=false
+          if jq -e '.scripts["prepare:aws"]' "${WEBSITE_DIR}/package.json" >/dev/null 2>&1; then SSR=true; fi
+          echo "Detected: pm=$PM ssr=$SSR"
+          { echo "pm=$PM"; echo "lockfile=$LOCKFILE"; echo "ssr=$SSR"; } >> "$GITHUB_OUTPUT"
 
       - name: Configure AWS credentials (OIDC)
         if: >
           !(github.event_name == 'pull_request' && github.event.action == 'closed')
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ env.ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
 
+      # pnpm version comes from the "packageManager" field in package.json.
       - name: Setup pnpm
         if: >
+          steps.shape.outputs.pm == 'pnpm' &&
           !(github.event_name == 'pull_request' && github.event.action == 'closed')
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.20.0
-          run_install: false
+        uses: pnpm/action-setup@v6
 
       - name: Setup Node
         if: >
           !(github.event_name == 'pull_request' && github.event.action == 'closed')
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-          cache-dependency-path: ${{ env.WEBSITE_DIR }}/pnpm-lock.yaml
+          cache: ${{ steps.shape.outputs.pm }}
+          cache-dependency-path: ${{ env.WEBSITE_DIR }}/${{ steps.shape.outputs.lockfile }}
 
       - name: Install dependencies
         working-directory: ${{ env.WEBSITE_DIR }}
         if: >
           !(github.event_name == 'pull_request' && github.event.action == 'closed')
-        run: pnpm install --frozen-lockfile
+        run: |
+          set -euo pipefail
+          if [ "${{ steps.shape.outputs.pm }}" = "pnpm" ]; then
+            pnpm install --frozen-lockfile
+          else
+            npm ci
+          fi
 
       - name: Build
         working-directory: ${{ env.WEBSITE_DIR }}
         if: >
           !(github.event_name == 'pull_request' && github.event.action == 'closed')
         run: |
-          pnpm run build
-          echo $(git log --format="%H" -n 1) > dist/version.txt
-          pnpm run prepare:aws
-          cd ./ssr_dist && zip -r ../server.zip .
+          set -euo pipefail
+          "${{ steps.shape.outputs.pm }}" run build
+          # version.txt carries the artifact key so a deployed site can be
+          # traced back to its commit.
+          echo "${COMMIT_SHA}" > dist/version.txt
+          if [ "${{ steps.shape.outputs.ssr }}" = "true" ]; then
+            "${{ steps.shape.outputs.pm }}" run prepare:aws
+            (cd ./ssr_dist && zip -r ../server.zip .)
+          fi
 
       - name: Upload to S3 (artifact bucket, keyed by commit SHA)
         working-directory: ${{ env.WEBSITE_DIR }}
@@ -105,80 +160,65 @@ jobs:
           !(github.event_name == 'pull_request' && github.event.action == 'closed')
         run: |
           set -euo pipefail
+          # SSR builds keep the raw server bundle out of the public artifact;
+          # it ships separately as server.zip. No-op for static builds.
           rm -rf ./dist/server
-          aws s3 cp ./dist/ s3://$S3_BUCKET/builds/$COMMIT_SHA/ --recursive
-          aws s3 cp ./server.zip s3://$S3_BUCKET/builds/$COMMIT_SHA/
-          echo "artifact_s3_uri=s3://${ARTIFACT_BUCKET}/builds/${COMMIT_SHA}" >> "$GITHUB_OUTPUT"
+          aws s3 cp ./dist/ "s3://${ARTIFACT_BUCKET}/builds/${COMMIT_SHA}/" --recursive
+          if [ -f ./server.zip ]; then
+            aws s3 cp ./server.zip "s3://${ARTIFACT_BUCKET}/builds/${COMMIT_SHA}/"
+          fi
 
-      # ---- Dispatch Deploy(s) based on event ----
-      # Push to non-main -> dev
-      - name: Trigger Deploy (dev) for push
-        if: github.event_name == 'push'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh api \
-            -X POST \
-            -H "Accept: application/vnd.github+json" \
-            "repos/${{ github.repository }}/actions/workflows/deploy.yml/dispatches" \
-            -f ref="${{ github.ref_name }}" \
-            -f inputs[environment]=dev \
-            -f inputs[sha]="${{ env.COMMIT_SHA }}"
-
-      # PR to main (open/sync/reopen) -> staging
-      - name: Trigger Deploy (staging) for PR events
-        if: >
-          github.event_name == 'pull_request' &&
-          github.event.action != 'closed' &&
-          github.event.pull_request.base.ref == 'main'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh api \
-            -X POST \
-            -H "Accept: application/vnd.github+json" \
-            "repos/${{ github.repository }}/actions/workflows/deploy.yml/dispatches" \
-            -f ref="${{ github.event.pull_request.base.ref }}" \
-            -f inputs[environment]=staging \
-            -f inputs[sha]="${{ env.COMMIT_SHA }}"
-
-      # PR merged to main -> prod (no rebuild)
-      - name: Trigger Deploy (prod) on PR merge
-        if: >
-          github.event_name == 'pull_request' &&
-          github.event.action == 'closed' &&
-          github.event.pull_request.merged == true &&
-          github.event.pull_request.base.ref == 'main'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh api \
-            -X POST \
-            -H "Accept: application/vnd.github+json" \
-            "repos/${{ github.repository }}/actions/workflows/deploy.yml/dispatches" \
-            -f ref="main" \
-            -f inputs[environment]=prod \
-            -f inputs[sha]="${{ env.COMMIT_SHA }}"
-
-      # Manual run -> dev, or all envs when deploy_all=true
-      - name: Trigger Deploy(s) for manual dispatch
-        if: github.event_name == 'workflow_dispatch'
+      # ---- Dispatch Deploy ----
+      # The pipeline maps git events onto the environment vocabulary:
+      #   push to a feature branch  -> dev
+      #   PR opened/updated to main -> staging
+      #   PR merged into main       -> prod (same artifact, no rebuild)
+      #   manual run                -> dev, or every enabled env via deploy_all
+      # A target that is not in ENVS is skipped - so projects without a
+      # given environment simply never deploy to it.
+      - name: Dispatch Deploy for this event
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          if [[ "${{ inputs.deploy_all }}" == "true" ]]; then
-            ENVS=(dev staging prod)
-          else
-            ENVS=(dev)
-          fi
-          for ENV in "${ENVS[@]}"; do
-            echo "Dispatching Deploy: env=$ENV sha=${COMMIT_SHA}"
+          TARGETS=()
+          REF="${{ github.ref_name }}"
+          case "${{ github.event_name }}" in
+            push)
+              TARGETS=(dev)
+              ;;
+            pull_request)
+              if [[ "${{ github.event.action }}" != "closed" \
+                    && "${{ github.event.pull_request.base.ref }}" == "main" ]]; then
+                TARGETS=(staging)
+                REF="${{ github.event.pull_request.base.ref }}"
+              elif [[ "${{ github.event.action }}" == "closed" \
+                      && "${{ github.event.pull_request.merged }}" == "true" \
+                      && "${{ github.event.pull_request.base.ref }}" == "main" ]]; then
+                TARGETS=(prod)
+                REF="main"
+              fi
+              ;;
+            workflow_dispatch)
+              if [[ "${{ inputs.deploy_all }}" == "true" ]]; then
+                IFS=',' read -ra TARGETS <<< "${ENVS}"
+              else
+                TARGETS=(dev)
+              fi
+              ;;
+          esac
+          for ENV in "${TARGETS[@]:-}"; do
+            [ -n "$ENV" ] || continue
+            if [[ ",${ENVS}," != *",${ENV},"* ]]; then
+              echo "$ENV is not an enabled environment (ENVS=${ENVS}) - skipping deploy"
+              continue
+            fi
+            echo "Dispatching Deploy: env=$ENV sha=${COMMIT_SHA} ref=$REF"
             gh api \
               -X POST \
               -H "Accept: application/vnd.github+json" \
               "repos/${{ github.repository }}/actions/workflows/deploy.yml/dispatches" \
-              -f ref="${{ github.ref_name }}" \
+              -f ref="$REF" \
               -f inputs[environment]="$ENV" \
-              -f inputs[sha]="${{ env.COMMIT_SHA }}"
+              -f inputs[sha]="${COMMIT_SHA}"
           done
