@@ -100,8 +100,16 @@ jobs:
           if [ -f "${WEBSITE_DIR}/pnpm-lock.yaml" ]; then PM=pnpm; LOCKFILE=pnpm-lock.yaml; fi
           SSR=false
           if jq -e '.scripts["prepare:aws"]' "${WEBSITE_DIR}/package.json" >/dev/null 2>&1; then SSR=true; fi
+          # pnpm/action-setup reads the pnpm version from the "packageManager"
+          # field; repos without the field get an explicit fallback instead of
+          # a "No pnpm version is specified" failure.
+          PNPM_VERSION=''
+          if [ "$PM" = pnpm ] && ! jq -e '.packageManager? | strings | startswith("pnpm@")' "${WEBSITE_DIR}/package.json" >/dev/null 2>&1; then
+            PNPM_VERSION=10
+            echo "No pnpm \"packageManager\" entry in package.json - defaulting to pnpm ${PNPM_VERSION}"
+          fi
           echo "Detected: pm=$PM ssr=$SSR"
-          { echo "pm=$PM"; echo "lockfile=$LOCKFILE"; echo "ssr=$SSR"; } >> "$GITHUB_OUTPUT"
+          { echo "pm=$PM"; echo "lockfile=$LOCKFILE"; echo "ssr=$SSR"; echo "pnpm_version=$PNPM_VERSION"; } >> "$GITHUB_OUTPUT"
 
       - name: Configure AWS credentials (OIDC)
         if: >
@@ -111,12 +119,19 @@ jobs:
           role-to-assume: ${{ env.ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
 
-      # pnpm version comes from the "packageManager" field in package.json.
+      # pnpm version comes from the "packageManager" field in the website's
+      # package.json - package_json_file matters: the action defaults to the
+      # repo-root package.json, which does not exist here. The shape step
+      # supplies a fallback version when the field is absent (an empty version
+      # input means "read packageManager").
       - name: Setup pnpm
         if: >
           steps.shape.outputs.pm == 'pnpm' &&
           !(github.event_name == 'pull_request' && github.event.action == 'closed')
         uses: pnpm/action-setup@v6
+        with:
+          version: ${{ steps.shape.outputs.pnpm_version }}
+          package_json_file: ${{ env.WEBSITE_DIR }}/package.json
 
       - name: Setup Node
         if: >
