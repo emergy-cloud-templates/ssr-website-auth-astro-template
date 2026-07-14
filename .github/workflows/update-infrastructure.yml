@@ -12,7 +12,7 @@
 #   TF_BACKEND_BUCKET, TF_STATE_KEY_PREFIX, ENVS,
 #   AWS_WEBSITE_ACM_ARN / AWS_WEBSITE_ACM_NAME (when a certificate exists)
 # Optional overrides you may set yourself:
-#   NODE_VERSION (default 24), TF_VERSION, TF_DDB_TABLE, INFRA_DIR
+#   NODE_VERSION (default 24), TF_VERSION, INFRA_DIR
 #
 # GitHub Deployments: one deployment per enabled environment (ENVS) is
 # created, marked in progress, then resolved to success/failure with the
@@ -46,7 +46,6 @@ jobs:
       PROJECT_ID: ${{ vars.PROJECT_ID }}
       TF_VERSION: ${{ vars.TF_VERSION || '1.15.8' }}
       TF_BACKEND_BUCKET: ${{ vars.TF_BACKEND_BUCKET }}
-      TF_DDB_TABLE: ${{ vars.TF_DDB_TABLE || 'terraform-state-lock' }}
       TF_STATE_KEY_PREFIX: ${{ vars.TF_STATE_KEY_PREFIX || 'default-project' }}
       ROLE_TO_ASSUME: ${{ vars.AWS_INFRA_ROLE_TO_ASSUME }}
       NODE_VERSION: ${{ vars.NODE_VERSION || '24' }}
@@ -127,7 +126,9 @@ jobs:
           cache: ${{ steps.shape.outputs.pm }}
           cache-dependency-path: website/${{ steps.shape.outputs.lockfile }}
 
-      - name: Terraform Init (S3 backend with DynamoDB lock)
+      # State locking is S3-native (a .tflock object next to the state);
+      # the DynamoDB lock table is deprecated in Terraform and unused here.
+      - name: Terraform Init (S3 backend with S3-native locking)
         run: |
           set -euo pipefail
           rm -rf .terraform
@@ -135,7 +136,7 @@ jobs:
             -backend-config="bucket=${TF_BACKEND_BUCKET}" \
             -backend-config="key=${TF_STATE_KEY_PREFIX}/terraform.tfstate" \
             -backend-config="region=${AWS_REGION}" \
-            -backend-config="dynamodb_table=${TF_DDB_TABLE}"
+            -backend-config="use_lockfile=true"
 
       - name: Build Lambda layer (SSR runtime dependencies)
         if: steps.shape.outputs.ssr == 'true'
