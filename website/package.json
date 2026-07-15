@@ -15,12 +15,13 @@
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",
-    "prepare:aws": "rm -rf ssr_dist && mkdir -p ssr_dist/dist && cp -r dist/server ssr_dist/dist/ && cp ssr/lambda.js ssr_dist && cp ssr/package.json ssr_dist && cp ssr/test.js ssr_dist",
-    "test:ssr": "pnpm run build && pnpm run prepare:aws && cp ssr/lambda-local.js ssr_dist && cd ssr_dist && node test.js"
+    "prepare:aws": "rm -rf ssr_dist && mkdir -p ssr_dist/dist && cp -r dist/server ssr_dist/dist/ && cp ssr/lambda.js ssr_dist && cp ssr/package.json ssr_dist && cp ssr/test.js ssr_dist && esbuild src/lib/loadSecrets.ts --bundle --platform=node --target=node22 --format=cjs --outfile=ssr_dist/loadSecrets.cjs",
+    "test:ssr": "npm run build && npm run prepare:aws && cp ssr/lambda-local.js ssr_dist && cd ssr_dist && node test.js"
   },
   "dependencies": {
     "@astrojs/node": "^11.0.0",
     "@astrojs/preact": "^6.0.0",
+    "@aws-sdk/client-secrets-manager": "^3.1088.0",
     "@iconify-json/heroicons": "^1.2.3",
     "@iconify-json/lucide": "^1.2.101",
     "@nanostores/preact": "^1.1.0",
@@ -33,5 +34,8 @@
     "nanostores": "^1.2.0",
     "preact": "^10.29.1",
     "tailwindcss": "^4.2.2"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.1"
   }
 }

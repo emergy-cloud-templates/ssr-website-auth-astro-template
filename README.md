@@ -143,8 +143,14 @@ The infrastructure is designed around a split static and SSR deployment:
 - Terraform creates separate dev, staging, and production website stacks.
 
 Before using the workflows, configure the required GitHub repository variables
-and secrets for AWS OIDC, Terraform state, Supabase, and optional custom domains.
+and secrets for AWS OIDC, Terraform state, and optional custom domains.
 The exact names should match the workflow files under `.github/workflows/`.
+
+Runtime app secrets (for example the Supabase URL and anon key) are not
+Terraform variables or GitHub secrets. Each environment reads one AWS Secrets
+Manager JSON secret named `<env>/<project_id>` (for example
+`prod/example-project`) at Lambda cold start. Create it per environment with
+the keys listed in `infrastructure/required-secret-keys.txt` before deploying.
 
 For a manual deployment flow, see [manual.md](./manual.md).
 

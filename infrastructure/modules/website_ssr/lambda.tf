@@ -14,8 +14,10 @@ resource "aws_lambda_function" "website_ssr" {
 
   environment {
     variables = {
-      PUBLIC_SUPABASE_URL      = var.env_config.public_supabase_url
-      PUBLIC_SUPABASE_ANON_KEY = var.env_config.public_supabase_anon_key
+      # No secret values here: the Lambda loads the "<env>/<project_id>" JSON
+      # secret into process.env at cold start (ssr/lambda.js -> loadSecrets).
+      APP_SECRETS_ID = local.app_secrets_id
+      ENV            = var.env_config.environment
     }
   }
 

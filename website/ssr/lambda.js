@@ -10,7 +10,7 @@ import { createRequire } from 'node:module';
 //           bundles src/lib/loadSecrets.ts → loadSecrets.cjs).
 //   false → boot straight from process.env / .env; loadSecrets is neither
 //           required nor referenced (safe to ship without loadSecrets.cjs).
-const USE_SECRETS = false;
+const USE_SECRETS = true;
 
 // loadSecrets is bundled to CommonJS (loadSecrets.cjs): the AWS SDK calls
 // require() for node built-ins, which throws "Dynamic require not supported"
