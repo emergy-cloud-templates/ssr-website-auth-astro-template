@@ -52,6 +52,17 @@ resource "aws_iam_role_policy" "lambda_exec_policy_website_ssr" {
         "Effect" : "Allow",
         "Action" : "cloudwatch:PutMetricData",
         "Resource" : "*"
+      },
+      {
+        # Read the per-env "<env>/<project_id>" secret at cold start.
+        # The trailing "-*" matches the random suffix Secrets Manager
+        # appends to every secret ARN.
+        Effect = "Allow"
+        Action = ["secretsmanager:GetSecretValue"]
+        Resource = [
+          for env in ["dev", "staging", "prod"] :
+          "arn:aws:secretsmanager:${data.aws_region.current.region}:${var.aws_account_number}:secret:${env}/${var.project_id}-*"
+        ]
       }
     ]
   })

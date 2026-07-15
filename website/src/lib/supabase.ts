@@ -2,9 +2,17 @@ import { createBrowserClient, createServerClient as createSSRServerClient, parse
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import type { AstroCookies } from 'astro';
 
-// Use import.meta.env so the browser bundle gets PUBLIC_* from Vite/Astro (.env is not applied to process.env on the client).
-const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
+// Browser bundle: import.meta.env.PUBLIC_* is inlined by Vite at build time
+// (.env is not applied to process.env on the client).
+// Server (Lambda): the SSR build is produced WITHOUT a .env, so the inlined
+// value is undefined there - fall back to process.env, which loadSecrets()
+// hydrates from AWS Secrets Manager before this module is imported.
+const supabaseUrl =
+  import.meta.env.PUBLIC_SUPABASE_URL ??
+  (typeof process !== 'undefined' ? process.env.PUBLIC_SUPABASE_URL : undefined);
+const supabaseAnonKey =
+  import.meta.env.PUBLIC_SUPABASE_ANON_KEY ??
+  (typeof process !== 'undefined' ? process.env.PUBLIC_SUPABASE_ANON_KEY : undefined);
 
 // Simple client for basic operations (legacy export)
 export const supabase = createSupabaseClient(supabaseUrl, supabaseAnonKey);

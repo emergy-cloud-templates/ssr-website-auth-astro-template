@@ -1,11 +1,9 @@
 variable "env_config" {
   description = "Environment-specific configuration"
   type = object({
-    environment              = string
-    base_domain              = string
-    project_id               = string
-    public_supabase_url      = string
-    public_supabase_anon_key = string
+    environment = string
+    base_domain = string
+    project_id  = string
   })
 
   validation {

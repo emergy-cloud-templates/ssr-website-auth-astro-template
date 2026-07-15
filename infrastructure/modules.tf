@@ -2,28 +2,23 @@
 locals {
   environments = {
     prod = {
-      environment              = "prod"
-      base_domain              = var.base_domain
-      project_id               = var.project_id
-      public_supabase_url      = var.prod_supabase_url
-      public_supabase_anon_key = var.prod_supabase_anon_key
-      # Add any other env-specific variables here
+      environment = "prod"
+      base_domain = var.base_domain
+      project_id  = var.project_id
+      # Add any other NON-SECRET env-specific variables here
+      # (secrets live in the "<env>/<project_id>" Secrets Manager secret)
       # custom_setting     = "prod-value"
     }
     dev = {
-      environment              = "dev"
-      base_domain              = var.base_domain
-      project_id               = var.project_id
-      public_supabase_url      = var.dev_supabase_url
-      public_supabase_anon_key = var.dev_supabase_anon_key
+      environment = "dev"
+      base_domain = var.base_domain
+      project_id  = var.project_id
       # custom_setting     = "dev-value"
     }
     staging = {
-      environment              = "staging"
-      base_domain              = var.base_domain
-      project_id               = var.project_id
-      public_supabase_url      = var.staging_supabase_url
-      public_supabase_anon_key = var.staging_supabase_anon_key
+      environment = "staging"
+      base_domain = var.base_domain
+      project_id  = var.project_id
       # custom_setting     = "staging-value"
     }
   }
