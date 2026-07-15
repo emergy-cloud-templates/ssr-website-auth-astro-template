@@ -35,7 +35,7 @@
     "mrmime": "^2.0.1",
     "nanostores": "^1.1.0",
     "node-gzip": "^1.1.2",
-    "preact-render-to-string": "^6.6.5",
+    "preact-render-to-string": "^6.7.0",
     "send": "^1.2.0",
     "server-destroy": "^1.0.1",
     "sharp": "^0.34.4",
