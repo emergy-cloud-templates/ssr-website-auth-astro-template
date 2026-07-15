@@ -19,7 +19,7 @@
     "@nanostores/preact": "^1.0.0",
     "@oslojs/encoding": "^1.1.0",
     "@smithy/node-http-handler": "^4.4.8",
-    "@supabase/ssr": "^0.8.0",
+    "@supabase/ssr": "^0.12.3",
     "@supabase/supabase-js": "^2.91.1",
     "axios": "^1.13.2",
     "clsx": "^2.1.1",
