@@ -39,6 +39,13 @@ export default defineConfig({
     allowedHosts: [".dvk.emergy.cloud"],
   },
 
+  security: {
+    // Trust X-Forwarded-Proto/Host from the devkit HTTPS proxy so the
+    // request URL origin matches the browser's Origin header; without this
+    // Astro's CSRF checkOrigin rejects every form POST with a bare 403.
+    allowedDomains: [{ hostname: "**.dvk.emergy.cloud", protocol: "https" }],
+  },
+
   adapter: node({
     mode: "middleware",
   }),
