@@ -38,7 +38,7 @@
     "preact-render-to-string": "^6.6.5",
     "send": "^1.2.0",
     "server-destroy": "^1.0.1",
-    "sharp": "^0.34.4",
+    "sharp": "^0.35.3",
     "slash": "^5.1.0",
     "undici": "^7.16.0",
     "unstorage": "^1.17.1",
