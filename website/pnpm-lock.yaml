@@ -25,7 +25,7 @@ importers:
         version: 1.2.117
       '@nanostores/preact':
         specifier: ^1.1.0
-        version: 1.1.0(nanostores@1.4.0)(preact@10.29.7)
+        version: 1.1.0(nanostores@1.4.1)(preact@10.29.7)
       '@supabase/ssr':
         specifier: ^0.10.0
         version: 0.10.3(@supabase/supabase-js@2.110.5)
@@ -45,8 +45,8 @@ importers:
         specifier: ^17.4.0
         version: 17.4.2
       nanostores:
-        specifier: ^1.2.0
-        version: 1.4.0
+        specifier: ^1.4.1
+        version: 1.4.1
       preact:
         specifier: ^10.29.1
         version: 10.29.7(preact-render-to-string@6.7.0)
@@ -1658,8 +1658,8 @@ packages:
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
     hasBin: true
 
-  nanostores@1.4.0:
-    resolution: {integrity: sha512-i0tloweeudshAEuddpDxcg9Ik6pkPfVsHIgKyf143JrgG7/MOh0+q7BypdLXZPoOP7fOYt1eTcwGkyiVmhJFkA==}
+  nanostores@1.4.1:
+    resolution: {integrity: sha512-PGd3uPojJB9Z07d5NX3Db/SOSBbyy3wLMUGq0GpnEEJfVzY9mq7daPMAZ3jObV5D3Jn+YKND636eI5ULg7F80Q==}
     engines: {node: ^20.0.0 || >=22.0.0}
 
   neotraverse@0.6.18:
@@ -2880,9 +2880,9 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@nanostores/preact@1.1.0(nanostores@1.4.0)(preact@10.29.7)':
+  '@nanostores/preact@1.1.0(nanostores@1.4.1)(preact@10.29.7)':
     dependencies:
-      nanostores: 1.4.0
+      nanostores: 1.4.1
       preact: 10.29.7(preact-render-to-string@6.7.0)
 
   '@napi-rs/wasm-runtime@1.1.6(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)':
@@ -3877,7 +3877,7 @@ snapshots:
 
   nanoid@3.3.16: {}
 
-  nanostores@1.4.0: {}
+  nanostores@1.4.1: {}
 
   neotraverse@0.6.18: {}
 
