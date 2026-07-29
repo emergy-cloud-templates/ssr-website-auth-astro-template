@@ -1,4 +1,4 @@
-# emergy.cloud workflow contract: astro v6
+# emergy.cloud workflow contract: astro v7
 # -----------------------------------------------------------------------------
 # emergy.cloud CI/CD reference - Delete Infrastructure (Astro)
 #
@@ -107,11 +107,20 @@ jobs:
       - name: Terraform Init (S3 backend with S3-native locking)
         run: |
           set -euo pipefail
-          # SSR layouts: terraform validates the Lambda layer archive exists
-          # even on destroy - satisfy it with a placeholder.
+          # SSR layouts: terraform reads the build artifacts even on destroy,
+          # and a fresh checkout has none of them (both are gitignored). Two
+          # placeholders keep the refresh from failing; nothing is uploaded
+          # because every resource is on its way out.
+          # 1. the Lambda layer archive the layer resource hashes.
           if [ -d lambda_layer ]; then
             echo "delete" > delete.txt
             zip -j lambda_layer/lambda_layer_website_ssr.zip delete.txt
+          fi
+          # 2. the SSR bundle directory data.archive_file zips - without it
+          #    destroy stops at "could not archive missing directory".
+          if grep -qs ssr_dist ./*.tf; then
+            mkdir -p ../website/ssr_dist
+            echo "delete" > ../website/ssr_dist/delete.txt
           fi
           rm -rf .terraform
           terraform init \
