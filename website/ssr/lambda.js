@@ -76,10 +76,21 @@ function createRequest(event) {
   };
 }
 
-function createResponse(event, context) {
+// Returns the fake Node ServerResponse plus a promise resolving to the API
+// Gateway result once end() fires. The invocation completes by RETURNING that
+// result from the async handler - never via context.succeed()/fail(), which
+// the nodejs24.x runtime removed (BufferedInvokeProcessor has no legacy
+// context methods; calling them throws and 502s every response).
+function createResponse(event) {
   let finished = false;
   const bodyChunks = [];
   let responseHeaders = {};
+  let resolveResult;
+  let rejectResult;
+  const result = new Promise((resolve, reject) => {
+    resolveResult = resolve;
+    rejectResult = reject;
+  });
 
   const response = {
     statusCode: 200,
@@ -116,7 +127,7 @@ function createResponse(event, context) {
     destroy(error) {
       if (!finished) {
         finished = true;
-        context.fail(error || new Error('Response destroyed before completion'));
+        rejectResult(error || new Error('Response destroyed before completion'));
       }
       return this;
     },
@@ -135,7 +146,7 @@ function createResponse(event, context) {
           for (const [header, value] of Object.entries(responseHeaders)) {
             multiValueHeaders[header] = Array.isArray(value) ? value : [String(value)];
           }
-          context.succeed({
+          resolveResult({
             statusCode: this.statusCode,
             multiValueHeaders,
             body: this._body,
@@ -143,33 +154,36 @@ function createResponse(event, context) {
         }
         if (typeof callback === 'function') callback();
       } catch (e) {
-        context.fail(e);
+        rejectResult(e);
       }
       return this;
     },
   };
 
-  return response;
+  return { response, result };
 }
 
-export const handler = async (event, context) => {
+export const handler = async (event) => {
   const startTime = Date.now();
 
   const { handler: ssrHandler } = await ssrReady;
   const request = createRequest(event);
-  const response = createResponse(event, context);
+  const { response, result } = createResponse(event);
   try {
     await ssrHandler(request, response);
+    // end() may fire after the middleware resolves (streamed bodies) - the
+    // promise covers both orders.
+    const apiGatewayResult = await result;
     console.log(
       JSON.stringify({
         method: event.httpMethod,
         url: event.path,
-        statusCode: response.statusCode,
+        statusCode: apiGatewayResult.statusCode,
         duration: Date.now() - startTime,
         timestamp: new Date().toISOString(),
       })
     );
-    return response;
+    return apiGatewayResult;
   } catch (error) {
     console.log(
       JSON.stringify({
@@ -181,6 +195,6 @@ export const handler = async (event, context) => {
         timestamp: new Date().toISOString(),
       })
     );
-    context.fail(error);
+    throw error;
   }
 };
