@@ -18,7 +18,7 @@
     "@iconify-json/lucide": "^1.2.86",
     "@nanostores/preact": "^1.0.0",
     "@oslojs/encoding": "^1.1.0",
-    "@smithy/node-http-handler": "^4.4.8",
+    "@smithy/node-http-handler": "^4.12.1",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.91.1",
     "axios": "^1.13.2",
