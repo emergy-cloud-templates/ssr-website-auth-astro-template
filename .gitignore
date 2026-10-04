@@ -1,6 +1,5 @@
-
-.terraform
-.terraform*
+# Terraform
+.terraform/
 *.tfstate
 *.tfstate.*
 *.tfplan
@@ -11,40 +10,29 @@ override.tf.json
 *_override.tf.json
 *.tfvars
 *.tfvars.json
+!*.tfvars.example
+infrastructure/.build/
+infrastructure/lambda_layer/nodejs/node_modules/
+infrastructure/lambda_layer/nodejs/package-lock.json
 
-# build output
-dist/
-codeData/
-.output/
-.astro
-# dependencies
+# Build artifacts
+*.zip
+.last_build
+
+# Dependencies
 node_modules/
-downloadS3/
-local/*.json
-local/**/*.json
-# logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
 
-
-# environment variables
+# Environment variables (secrets)
 .env
 .env.*
 !.env.example
-.mongodb.env
-# macOS-specific files
-.DS_Store
-*.zip
-*.jar
-	
 
-ai/output
-venv
-ai/**/*.csv
-ai/**/*.json
-ai/**/*.xml
-ai/**/*.html
-*.zip
-ssr_dist/
+# OS / editors
+.DS_Store
+.idea/
+
+# scripts/deploy.sh configuration
+deploy.env
+
+# pnpm store when created inside the project
+.pnpm-store/

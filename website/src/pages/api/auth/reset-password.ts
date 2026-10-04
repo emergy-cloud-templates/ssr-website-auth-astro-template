@@ -1,30 +1,25 @@
-import type { APIRoute } from 'astro';
-import { supabase } from '../../../lib/supabase';
+import type { APIRoute } from "astro";
 
-export const POST: APIRoute = async ({ request, url }) => {
-  const formData = await request.formData();
-  const email = formData.get('email')?.toString();
+import { AuthError, siteOrigin } from "~/lib/auth";
+import { errorResponse, field, json, jsonError, readForm } from "~/lib/http";
+import { normalizeEmail, validateEmail } from "~/lib/validation";
 
-  if (!email) {
-    return new Response(
-      JSON.stringify({ error: 'Email is required' }),
-      { status: 400 }
-    );
+export const POST: APIRoute = async ({ request, url, locals }) => {
+  const form = await readForm(request);
+  if (!form) return jsonError("Invalid request.", 400);
+
+  const email = normalizeEmail(field(form, "email"));
+  const emailError = validateEmail(email);
+  if (emailError) return jsonError(emailError, 400);
+
+  try {
+    const redirectTo = `${siteOrigin(url)}/auth/callback?next=${encodeURIComponent("/auth/update-password")}`;
+    await locals.auth.requestPasswordReset(email, redirectTo);
+  } catch (error) {
+    // Only rate limiting is surfaced: anything else would hint at whether
+    // the account exists.
+    if (error instanceof AuthError && error.code === "rate_limited") return errorResponse(error);
+    console.error("[reset-password]", error);
   }
-
-  const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${url.origin}/auth/update-password`,
-  });
-
-  if (error) {
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 400 }
-    );
-  }
-
-  return new Response(
-    JSON.stringify({ success: true }),
-    { status: 200 }
-  );
+  return json({ ok: true });
 };

@@ -1,3 +1,4 @@
+# emergy.cloud workflow contract: astro v7
 # -----------------------------------------------------------------------------
 # emergy.cloud CI/CD reference - Build (Astro)
 #
@@ -18,7 +19,8 @@
 #
 # CONTRACT - the platform tracks this pipeline by convention. Do not rename
 # this file (.github/workflows/build.yml) or the deploy dispatch inputs
-# (environment, sha, deploy_all); the platform dispatches and parses them.
+# (environment, sha, deploy_all, deploy_environments); the platform dispatches
+# and parses them.
 # -----------------------------------------------------------------------------
 name: Build
 
@@ -35,8 +37,8 @@ on:
     branches: [ main ]
     types: [ opened, synchronize, reopened, closed ]
 
-  # Manual trigger: deploys the first pipeline stage, or every enabled
-  # environment when deploy_all is set.
+  # Manual trigger: builds only by default, with optional selected or all
+  # environment deploys.
   workflow_dispatch:
     inputs:
       deploy_all:
@@ -44,6 +46,11 @@ on:
         required: false
         default: false
         type: boolean
+      deploy_environments:
+        description: "Comma-separated environments to deploy after the build"
+        required: false
+        default: ""
+        type: string
 
 permissions:
   id-token: write
@@ -90,6 +97,7 @@ jobs:
       #   pm   - pnpm when a pnpm lockfile is present, npm otherwise
       #   ssr  - templates with a "prepare:aws" script ship a Lambda server
       #          bundle (server.zip) next to the static assets
+      #   worker - projects with a "package:worker" script ship worker.zip
       - name: Detect project shape
         id: shape
         if: >
@@ -98,8 +106,19 @@ jobs:
           set -euo pipefail
           PM=npm; LOCKFILE=package-lock.json
           if [ -f "${WEBSITE_DIR}/pnpm-lock.yaml" ]; then PM=pnpm; LOCKFILE=pnpm-lock.yaml; fi
+          # setup-node's cache resolves cache-dependency-path against the
+          # checkout; a repo without a committed lockfile would fail the whole
+          # job there ("Some specified paths were not resolved"), so run
+          # uncached instead and surface the real problem.
+          CACHE="$PM"
+          if [ ! -f "${WEBSITE_DIR}/${LOCKFILE}" ]; then
+            CACHE=''
+            echo "::warning::${WEBSITE_DIR}/${LOCKFILE} is not committed - dependency caching disabled; commit the lockfile to fix this"
+          fi
           SSR=false
           if jq -e '.scripts["prepare:aws"]' "${WEBSITE_DIR}/package.json" >/dev/null 2>&1; then SSR=true; fi
+          WORKER=false
+          if jq -e '.scripts["package:worker"]' "${WEBSITE_DIR}/package.json" >/dev/null 2>&1; then WORKER=true; fi
           # pnpm/action-setup reads the pnpm version from the "packageManager"
           # field; repos without the field get an explicit fallback instead of
           # a "No pnpm version is specified" failure.
@@ -108,16 +127,35 @@ jobs:
             PNPM_VERSION=10
             echo "No pnpm \"packageManager\" entry in package.json - defaulting to pnpm ${PNPM_VERSION}"
           fi
-          echo "Detected: pm=$PM ssr=$SSR"
-          { echo "pm=$PM"; echo "lockfile=$LOCKFILE"; echo "ssr=$SSR"; echo "pnpm_version=$PNPM_VERSION"; } >> "$GITHUB_OUTPUT"
+          echo "Detected: pm=$PM ssr=$SSR worker=$WORKER"
+          { echo "pm=$PM"; echo "lockfile=$LOCKFILE"; echo "cache=$CACHE"; echo "ssr=$SSR"; echo "worker=$WORKER"; echo "pnpm_version=$PNPM_VERSION"; } >> "$GITHUB_OUTPUT"
 
       - name: Configure AWS credentials (OIDC)
+        id: aws_credentials
         if: >
           !(github.event_name == 'pull_request' && github.event.action == 'closed')
         uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ env.ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
+
+      # AWS answers every refused OIDC assume with the same opaque string,
+      # whatever the cause - wrong role, missing provider, unmatched trust. The
+      # token is the only thing that can say which, so print its claims (never
+      # the token) when the assume fails. Compare `sub` against the deploy
+      # role's trust condition; they must match exactly.
+      - name: Explain OIDC failure
+        if: failure() && steps.aws_credentials.conclusion == 'failure'
+        working-directory: .
+        run: |
+          echo "::error::${ROLE_TO_ASSUME} did not trust this workflow's OIDC token"
+          T=$(curl -sH "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -r .value)
+          P=$(echo "$T" | cut -d. -f2 | tr '_-' '/+')
+          # A JWT payload is unpadded base64url - base64 needs the "=" back,
+          # or it decodes the claims and still exits "base64: invalid input".
+          case $(( ${#P} % 4 )) in 2) P="$P==" ;; 3) P="$P=" ;; esac
+          printf '%s' "$P" | base64 -d | jq '{sub,aud,repository}'
 
       # pnpm version comes from the "packageManager" field in the website's
       # package.json - package_json_file matters: the action defaults to the
@@ -139,7 +177,7 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: ${{ steps.shape.outputs.pm }}
+          cache: ${{ steps.shape.outputs.cache }}
           cache-dependency-path: ${{ env.WEBSITE_DIR }}/${{ steps.shape.outputs.lockfile }}
 
       - name: Install dependencies
@@ -154,6 +192,35 @@ jobs:
             npm ci
           fi
 
+      # Quality gate: a commit that fails lint, type checks or unit tests is
+      # never uploaded, so it can never be deployed. Scripts a template does
+      # not define are skipped.
+      - name: Verify (lint, type check, unit tests)
+        working-directory: ${{ env.WEBSITE_DIR }}
+        if: >
+          !(github.event_name == 'pull_request' && github.event.action == 'closed')
+        run: |
+          set -euo pipefail
+          for script in lint check test; do
+            if jq -e --arg s "$script" '.scripts[$s]' package.json >/dev/null; then
+              "${{ steps.shape.outputs.pm }}" run "$script"
+            fi
+          done
+
+      # Non-secret build-time config: dotenv-style lines from the BUILD_ENV
+      # repository variable, exported before the build (e.g. Astro PUBLIC_*
+      # values inlined into the client bundle). Secrets do NOT belong here -
+      # runtime config loads from the per-env secret at Lambda cold start.
+      - name: Export build environment (BUILD_ENV repository variable)
+        if: >
+          vars.BUILD_ENV != '' &&
+          !(github.event_name == 'pull_request' && github.event.action == 'closed')
+        env:
+          BUILD_ENV: ${{ vars.BUILD_ENV }}
+        run: |
+          set -euo pipefail
+          printf '%s\n' "$BUILD_ENV" >> "$GITHUB_ENV"
+
       - name: Build
         working-directory: ${{ env.WEBSITE_DIR }}
         if: >
@@ -162,11 +229,19 @@ jobs:
           set -euo pipefail
           "${{ steps.shape.outputs.pm }}" run build
           # version.txt carries the artifact key so a deployed site can be
-          # traced back to its commit.
-          echo "${COMMIT_SHA}" > dist/version.txt
+          # traced back to its commit (served at /version.txt). SSR builds
+          # publish dist/client, static builds publish dist/.
+          if [ -d dist/client ]; then
+            echo "${COMMIT_SHA}" > dist/client/version.txt
+          else
+            echo "${COMMIT_SHA}" > dist/version.txt
+          fi
           if [ "${{ steps.shape.outputs.ssr }}" = "true" ]; then
             "${{ steps.shape.outputs.pm }}" run prepare:aws
             (cd ./ssr_dist && zip -r ../server.zip .)
+          fi
+          if [ "${{ steps.shape.outputs.worker }}" = "true" ]; then
+            "${{ steps.shape.outputs.pm }}" run package:worker
           fi
 
       - name: Upload to S3 (artifact bucket, keyed by commit SHA)
@@ -182,18 +257,22 @@ jobs:
           if [ -f ./server.zip ]; then
             aws s3 cp ./server.zip "s3://${ARTIFACT_BUCKET}/builds/${COMMIT_SHA}/"
           fi
+          if [ -f ./worker.zip ]; then
+            aws s3 cp ./worker.zip "s3://${ARTIFACT_BUCKET}/builds/${COMMIT_SHA}/"
+          fi
 
       # ---- Dispatch Deploy ----
       # The pipeline maps git events onto the environment vocabulary:
       #   push to a feature branch  -> dev
       #   PR opened/updated to main -> staging
       #   PR merged into main       -> prod (same artifact, no rebuild)
-      #   manual run                -> dev, or every enabled env via deploy_all
+      #   manual run                -> selected envs, every enabled env via deploy_all, or none
       # A target that is not in ENVS is skipped - so projects without a
       # given environment simply never deploy to it.
       - name: Dispatch Deploy for this event
         env:
           GH_TOKEN: ${{ github.token }}
+          SELECTED_ENVS: ${{ inputs.deploy_environments }}
         run: |
           set -euo pipefail
           TARGETS=()
@@ -217,8 +296,8 @@ jobs:
             workflow_dispatch)
               if [[ "${{ inputs.deploy_all }}" == "true" ]]; then
                 IFS=',' read -ra TARGETS <<< "${ENVS}"
-              else
-                TARGETS=(dev)
+              elif [[ -n "${SELECTED_ENVS}" ]]; then
+                IFS=',' read -ra TARGETS <<< "${SELECTED_ENVS}"
               fi
               ;;
           esac

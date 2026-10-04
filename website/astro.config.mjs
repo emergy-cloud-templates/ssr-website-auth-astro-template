@@ -1,68 +1,70 @@
 // @ts-check
-import { defineConfig } from "astro/config";
+import { fileURLToPath } from "node:url";
+
 import node from "@astrojs/node";
-import path from 'path';
-import { fileURLToPath } from 'url';
-
 import preact from "@astrojs/preact";
-
 import tailwindcss from "@tailwindcss/vite";
+import { defineConfig } from "astro/config";
 
-import icon from "astro-icon";
+const isBuild = process.argv.includes("build");
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// Optional public URL of a remote dev environment (for example a devkit or
+// Codespaces HTTPS proxy in front of `astro dev`). Unset for plain local dev,
+// and ignored by `astro build` so builds never depend on the dev machine.
+const devUrl = isBuild ? undefined : process.env.DEV_URL;
+const devHost = devUrl ? new URL(devUrl).hostname : undefined;
 
-const devUrl = process.env.DEV_URL;
-
+/** Prints the public URL next to Astro's own "Local" line when DEV_URL is set. */
 function devUrlBanner() {
   return {
     name: "dev-url-banner",
     hooks: {
       "astro:server:start": () => {
-        if (process.env.DEV_URL) {
-          console.log(`\n  \x1b[32m🌐 Public\x1b[0m  ${process.env.DEV_URL}/\n`);
-        }
+        if (devUrl) console.log(`\n  Public  ${devUrl}/\n`);
       },
     },
   };
 }
 
-// https://astro.build/config
+// https://docs.astro.build/en/reference/configuration-reference/
 export default defineConfig({
   output: "server",
-
   ...(devUrl && { site: devUrl }),
+
+  // The Lambda entry (ssr/lambda.js) drives Astro through the Node adapter's
+  // request handler, so the adapter runs in "middleware" mode.
+  adapter: node({ mode: "middleware" }),
 
   server: {
     host: true,
     port: 4321,
-    allowedHosts: [".dvk.emergy.cloud"],
+    ...(devHost && { allowedHosts: [devHost] }),
   },
 
   security: {
-    // Trust X-Forwarded-Proto/Host from the devkit HTTPS proxy so the
-    // request URL origin matches the browser's Origin header; without this
-    // Astro's CSRF checkOrigin rejects every form POST with a bare 403.
-    allowedDomains: [{ hostname: "**.dvk.emergy.cloud", protocol: "https" }],
+    // A TLS-terminating proxy in front of `astro dev` makes the browser Origin
+    // (https://...) differ from the URL the dev server sees (http://...).
+    // Trusting the proxy's X-Forwarded-* headers for that one host keeps the
+    // CSRF origin check working. In AWS the Lambda shim restores the viewer
+    // host itself (see ssr/shim.js), so nothing is needed here.
+    ...(devHost && { allowedDomains: [{ hostname: devHost, protocol: "https" }] }),
   },
 
-  adapter: node({
-    mode: "middleware",
-  }),
-
   vite: {
+    plugins: [tailwindcss()],
+    resolve: {
+      alias: { "~": fileURLToPath(new URL("./src", import.meta.url)) },
+    },
     server: {
       ...(devUrl && { hmr: { protocol: "wss", clientPort: 443 } }),
     },
-
-    resolve: {
-      alias: {
-        "~": path.resolve(__dirname, "./src"),
-      },
+    ssr: {
+      // Bundle every dependency into dist/server so the Lambda zip is
+      // self-contained: no node_modules, no layer, no version drift between
+      // what was tested and what runs.
+      noExternal: isBuild ? true : undefined,
     },
-
-    plugins: [tailwindcss()],
   },
 
-  integrations: [preact(), icon(), devUrlBanner()],
+  integrations: [preact(), devUrlBanner()],
 });

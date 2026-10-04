@@ -1,10 +1,14 @@
 {
   "name": "ssr-website-auth-astro-template",
   "type": "module",
-  "version": "0.0.1",
-  "description": "Open-source Astro SSR website template with Supabase authentication and AWS deployment infrastructure.",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Astro SSR website template with Supabase (or local) authentication and an AWS Lambda + CloudFront deployment.",
   "license": "MIT",
-  "packageManager": "pnpm@10.20.0",
+  "packageManager": "pnpm@12.8.1",
+  "engines": {
+    "node": ">=22.13.0"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/emergy-cloud-templates/ssr-website-auth-astro-template.git",
@@ -13,29 +17,48 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
-    "preview": "astro preview",
+    "preview": "pnpm build && pnpm prepare:aws && pnpm serve:lambda",
     "astro": "astro",
-    "prepare:aws": "rm -rf ssr_dist && mkdir -p ssr_dist/dist && cp -r dist/server ssr_dist/dist/ && cp ssr/lambda.js ssr_dist && cp ssr/package.json ssr_dist && cp ssr/test.js ssr_dist && esbuild src/lib/loadSecrets.ts --bundle --platform=node --target=node22 --format=cjs --outfile=ssr_dist/loadSecrets.cjs",
-    "test:ssr": "npm run build && npm run prepare:aws && cp ssr/lambda-local.js ssr_dist && cd ssr_dist && node test.js"
+    "check": "astro check",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ssr": "pnpm build && pnpm prepare:aws && node ssr/smoke-test.mjs",
+    "test:e2e": "playwright test",
+    "prepare:aws": "node scripts/prepare-aws.mjs",
+    "serve:lambda": "node ssr/local-server.mjs",
+    "verify": "pnpm lint && pnpm format:check && pnpm check && pnpm test && pnpm test:ssr"
   },
   "dependencies": {
-    "@astrojs/node": "^11.0.0",
-    "@astrojs/preact": "^6.0.0",
-    "@aws-sdk/client-secrets-manager": "^3.1088.0",
-    "@iconify-json/heroicons": "^1.2.3",
-    "@iconify-json/lucide": "^1.2.101",
+    "@astrojs/node": "^11.1.6",
+    "@astrojs/preact": "^6.0.5",
     "@nanostores/preact": "^1.1.0",
-    "@supabase/ssr": "^0.10.0",
-    "@supabase/supabase-js": "^2.101.1",
-    "@tailwindcss/vite": "^4.2.2",
-    "astro": "^7.0.3",
-    "astro-icon": "^1.1.5",
-    "dotenv": "^17.4.0",
-    "nanostores": "^1.2.0",
-    "preact": "^10.29.1",
-    "tailwindcss": "^4.2.2"
+    "@supabase/ssr": "^0.12.7",
+    "@supabase/supabase-js": "^2.117.2",
+    "@tailwindcss/vite": "^4.3.3",
+    "astro": "^7.3.5",
+    "nanostores": "^1.5.4",
+    "preact": "^10.29.8",
+    "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
-    "esbuild": "^0.28.1"
+    "@astrojs/check": "^0.9.10",
+    "@aws-sdk/client-secrets-manager": "^3.1146.0",
+    "@axe-core/playwright": "^4.13.0",
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^24.19.1",
+    "esbuild": "^0.28.2",
+    "eslint": "^10.12.0",
+    "eslint-plugin-astro": "^3.2.1",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "globals": "^17.13.0",
+    "prettier": "^3.9.9",
+    "prettier-plugin-astro": "^1.1.0",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.71.0",
+    "vitest": "^5.0.3"
   }
 }

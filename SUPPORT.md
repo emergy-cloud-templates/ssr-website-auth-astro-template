@@ -6,9 +6,8 @@ This project is maintained as an open-source template. Support is best-effort.
 
 Check:
 
-- The root [README](./README.md).
-- The app-specific [website README](./website/README.md).
-- The manual deployment notes in [manual.md](./manual.md).
+- The root [README](./README.md) and the guides in [docs/](./docs).
+- The troubleshooting table in [docs/local-development.md](./docs/local-development.md#troubleshooting).
 - Existing issues and pull requests.
 
 ## Good Issue Reports Include
@@ -25,5 +24,5 @@ Check:
 For general setup questions, open a GitHub Discussion if discussions are enabled.
 If not, open an issue and use the question label.
 
-Please do not share real credentials, Terraform state, Supabase keys beyond anon
-publishable keys, AWS account IDs, private domains, or production logs.
+Please do not share real credentials, Terraform state, Supabase keys (other
+than publishable keys), AWS account IDs, private domains, or production logs.

@@ -1,11 +1,23 @@
-aws_account_number = "123456789012"
-project_id         = "example-project"
+# Copy to terraform.tfvars for local runs (gitignored). In CI the same values
+# come from TF_VAR_* environment variables set by the workflows.
 
-# Leave these empty to use CloudFront's default domain.
+aws_account_number = "123456789012"
+project_id         = "my-project"
+
+# Environments to create (subset of dev, staging, prod). Keep it equal to the
+# ENVS repository variable so CI deploys to exactly these.
+envs = "dev,prod"
+
+# Optional custom domain. Leave empty to use the *.cloudfront.net URLs.
+# The certificate must be in us-east-1 and cover every hostname used
+# (e.g. example.com + *.example.com).
 base_domain         = ""
 aws_website_acm_arn = ""
 
-# Runtime secrets (Supabase URL/keys, API keys, ...) are NOT tfvars.
-# Put them in one AWS Secrets Manager JSON secret per environment, named
-# "<env>/<project_id>" (e.g. "prod/example-project"). Required keys are
-# listed in required-secret-keys.txt.
+# Per-environment overrides (optional):
+# hostname_prod            = "app.example.com"
+# aws_website_acm_arn_prod = "arn:aws:acm:us-east-1:123456789012:certificate/..."
+
+# Runtime secrets (Supabase URL/keys, ...) are NOT Terraform variables.
+# Put them in one AWS Secrets Manager JSON secret per environment named
+# "<env>/<project_id>" (e.g. "prod/my-project"). Keys: required-secret-keys.txt.

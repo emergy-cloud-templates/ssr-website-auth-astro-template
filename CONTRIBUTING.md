@@ -1,60 +1,62 @@
 # Contributing
 
-Thanks for helping improve this template. The goal is to keep the repository
-useful as a reusable baseline for authenticated Astro SSR websites, not to turn
-it into a single project's private application.
+Thanks for helping improve this template. The goal is a reusable, well-tested
+baseline for authenticated Astro SSR websites, not a single project's
+application.
 
-## Good Contributions
+## Good contributions
 
-- Auth and session correctness improvements.
-- Tests for middleware, redirects, and API route behavior.
-- Better deployment documentation.
-- Smaller or safer Lambda packaging.
-- Terraform hardening.
+- Auth and session correctness, security hardening.
+- Tests for uncovered behavior.
+- Deployment and infrastructure improvements that stay easy to understand.
 - Accessibility fixes.
-- Provider variants that remain easy to understand.
 - Documentation that helps a new maintainer run the template end to end.
 
-## Local Setup
+## Local setup
 
 ```sh
 cd website
 pnpm install
-cp .env.example .env
-pnpm dev
+pnpm dev                                 # local auth mode, no account needed
+pnpm exec playwright install chromium    # once, for e2e tests
 ```
 
-Set the Supabase values in `.env` before testing auth flows.
+See [docs/local-development.md](docs/local-development.md).
 
-## Validation
-
-Before opening a pull request, run:
+## Before opening a pull request
 
 ```sh
-pnpm --dir website build
-pnpm --dir website test:ssr
+cd website
+pnpm format
+pnpm verify        # lint, format check, types, unit tests, Lambda smoke test
+pnpm test:e2e      # browser tests
 ```
 
-If your change touches infrastructure, also run Terraform formatting:
+If you changed `infrastructure/`:
 
 ```sh
-terraform -chdir=infrastructure fmt -recursive
+cd infrastructure
+terraform fmt -recursive
+terraform init -backend=false && terraform validate && terraform test
 ```
 
-Run `terraform plan` against your own AWS account or test environment before
-submitting infrastructure changes. Do not commit generated state, plans, zip
-files, local environment files, account IDs, domains, or credentials.
+and run `terraform plan` against your own AWS account when the change affects
+real resources. If you changed the UI, regenerate the screenshots
+(`node scripts/screenshots.mjs` in `website/` after `pnpm build && pnpm prepare:aws`).
 
-## Pull Request Guidelines
+Never commit `.env` files, `deploy.env`, Terraform state or plans, zips,
+account IDs, private domains or credentials.
 
-- Keep changes scoped to one concern.
-- Explain why the change is useful for template users.
-- Include screenshots for visible UI changes.
-- Include test or verification notes.
-- Update documentation when setup, deployment, or environment variables change.
-- Avoid project-specific naming unless the file is explicitly an example.
+## Pull request guidelines
+
+- One concern per pull request, with a Conventional Commit title
+  (`feat:`, `fix:`, `docs:` ...).
+- Explain why the change helps template users.
+- Add or update tests; include verification notes and screenshots for UI changes.
+- Update the docs when setup, configuration or behavior changes.
+- Follow [AGENTS.md](AGENTS.md) (it is written for AI assistants, and it is the
+  same set of rules for humans).
 
 ## Security
 
-Please do not open public issues for vulnerabilities. Follow
-[SECURITY.md](./SECURITY.md).
+Do not open public issues for vulnerabilities. Follow [SECURITY.md](SECURITY.md).

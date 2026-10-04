@@ -3,35 +3,29 @@
 This roadmap keeps the template focused on practical production readiness for
 Astro SSR websites with authentication.
 
-## Near Term
+## Done
 
-- Add automated tests for auth API routes.
-- Add middleware redirect tests for protected and auth-only pages.
-- Document required GitHub Actions variables and AWS IAM assumptions.
-- Reduce Lambda layer size and document the packaging strategy.
-- Add a minimal Supabase setup guide, including redirect URLs.
-- Improve account deletion so forks can plug in application data cleanup.
+- Auth through one interface, with Supabase and a zero-setup local provider.
+- Working email confirmation and password reset flows (PKCE and token hash),
+  real account deletion, open-redirect and enumeration protections.
+- Self-contained Lambda bundle, CloudFront host forwarding, origin secret.
+- Unit, end-to-end (with accessibility checks), Lambda smoke and Terraform tests.
+- Optional environments (`ENVS`), per-environment custom domains.
+- Getting started, configuration, deployment and customization guides.
+- AI assistant setup (`AGENTS.md`, `/ship`, `/deploy`, `@claude`).
 
-## Infrastructure
+## Next
 
-- Add clearer Terraform variable descriptions.
-- Add example `terraform.tfvars.example` with placeholder values.
-- Document custom domain and ACM certificate setup.
-- Document CloudFront cache behavior for authenticated SSR requests.
-- Add optional deployment notes for non-AWS targets.
+- OAuth providers (Google, GitHub) and magic links behind the same interface.
+- Optional multi-factor authentication (TOTP).
+- Rate limiting for the local provider and the API routes.
+- A narrower IAM policy for the GitHub deploy role.
+- Content Security Policy with nonces instead of `'unsafe-inline'`.
+- Example of a data feature (Supabase table with row level security) with tests.
 
-## Developer Experience
-
-- Add screenshots or a small demo walkthrough.
-- Add a "create a new project from this template" checklist.
-- Add issue labels and triage guidance.
-- Keep dependency update automation active.
-- Improve UI accessibility for auth and dashboard components.
-
-## Non-Goals
+## Non-goals
 
 - Becoming a full SaaS boilerplate with billing, teams, or product-specific
   domain models.
-- Hiding infrastructure details behind a custom CLI.
 - Supporting every auth provider in the core template.
 - Adding private project configuration to the public repository.

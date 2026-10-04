@@ -1,54 +1,24 @@
-import type { APIRoute } from 'astro';
-import { createServerClient } from '../../../lib/supabase';
+import type { APIRoute } from "astro";
 
-export const POST: APIRoute = async ({ request, cookies }) => {
-  const formData = await request.formData();
-  const confirmation = formData.get('confirmation')?.toString();
-  const password = formData.get('password')?.toString();
+import { errorResponse, field, json, jsonError, readForm } from "~/lib/http";
 
-  if (confirmation !== 'DELETE') {
-    return new Response(
-      JSON.stringify({ error: 'Please type DELETE to confirm' }),
-      { status: 400 }
-    );
+export const POST: APIRoute = async ({ request, locals }) => {
+  if (!locals.user) return jsonError("Your session has expired. Please sign in again.", 401);
+
+  const form = await readForm(request);
+  if (!form) return jsonError("Invalid request.", 400);
+
+  if (field(form, "confirmation") !== "DELETE") return jsonError("Please type DELETE to confirm.", 400);
+  const password = field(form, "password");
+  if (!password) return jsonError("Password is required.", 400);
+
+  try {
+    if (!(await locals.auth.verifyPassword(password))) return jsonError("Password is incorrect.", 400);
+    // Delete your own application data for this user here, before the
+    // auth account disappears (see docs/customization.md).
+    await locals.auth.deleteAccount();
+    return json({ ok: true });
+  } catch (error) {
+    return errorResponse(error);
   }
-
-  if (!password) {
-    return new Response(
-      JSON.stringify({ error: 'Password is required' }),
-      { status: 400 }
-    );
-  }
-
-  const supabase = createServerClient(cookies);
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user?.email) {
-    return new Response(
-      JSON.stringify({ error: 'Not authenticated' }),
-      { status: 401 }
-    );
-  }
-
-  // Verify password
-  const { error: signInError } = await supabase.auth.signInWithPassword({
-    email: user.email,
-    password,
-  });
-
-  if (signInError) {
-    return new Response(
-      JSON.stringify({ error: 'Password is incorrect' }),
-      { status: 400 }
-    );
-  }
-
-  await supabase.auth.signOut();
-  cookies.delete('sb-access-token', { path: '/' });
-  cookies.delete('sb-refresh-token', { path: '/' });
-
-  return new Response(
-    JSON.stringify({ success: true }),
-    { status: 200 }
-  );
 };

@@ -1,16 +1,17 @@
 ## Summary
 
-Describe the change and why it helps template users.
+What changes, and why it helps template users.
 
 ## Validation
 
-- [ ] `pnpm --dir website build`
-- [ ] `pnpm --dir website test:ssr`
-- [ ] `terraform -chdir=infrastructure fmt -recursive` if Terraform changed
+- [ ] `pnpm verify` (in `website/`)
+- [ ] `pnpm test:e2e` (in `website/`)
+- [ ] `terraform fmt -recursive && terraform validate && terraform test` (if `infrastructure/` changed)
 
 ## Checklist
 
-- [ ] I updated documentation when setup or behavior changed.
-- [ ] I did not commit `.env`, Terraform state, generated zips, account IDs, or secrets.
-- [ ] I kept the change generic enough for a reusable template.
-- [ ] I included screenshots for visible UI changes.
+- [ ] Tests added or updated for the new behavior.
+- [ ] Documentation updated when setup, configuration or behavior changed.
+- [ ] No `.env`, `deploy.env`, Terraform state, zips, account IDs or secrets.
+- [ ] Generic enough for a reusable template.
+- [ ] Screenshots for visible UI changes.

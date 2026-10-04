@@ -15,11 +15,18 @@ updates:
     labels:
       - dependencies
       - website
+    groups:
+      astro:
+        patterns: ["astro", "@astrojs/*"]
+      supabase:
+        patterns: ["@supabase/*"]
+      tooling:
+        dependency-type: "development"
 
-  - package-ecosystem: "npm"
-    directory: "/infrastructure/lambda_layer/nodejs"
+  - package-ecosystem: "terraform"
+    directory: "/infrastructure"
     schedule:
       interval: "weekly"
     labels:
       - dependencies
-      - lambda-layer
+      - infrastructure

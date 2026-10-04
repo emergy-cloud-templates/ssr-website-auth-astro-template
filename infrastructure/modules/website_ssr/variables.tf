@@ -1,54 +1,73 @@
-variable "env_config" {
-  description = "Environment-specific configuration"
-  type = object({
-    environment = string
-    base_domain = string
-    project_id  = string
-  })
+variable "environment" {
+  type        = string
+  description = "Environment name: dev, staging or prod."
 
   validation {
-    condition     = contains(["dev", "staging", "prod"], var.env_config.environment)
+    condition     = contains(["dev", "staging", "prod"], var.environment)
     error_message = "environment must be one of: dev, staging, prod."
   }
 }
 
-variable "lambda_layer_arn" {
-  description = "Layer for the server side rendering lambda"
+variable "project_id" {
   type        = string
-  default     = ""
+  description = "Project identifier used in every resource name."
 }
 
-variable "lambda_role_arn" {
-  description = "Role for the server side rendering lambda"
+variable "hostname" {
   type        = string
   default     = ""
-}
-
-variable "lambda_zip_path" {
-  description = "Path to the zip file for the server side rendering lambda"
-  type        = string
-  default     = ""
+  description = "Custom hostname served by CloudFront (e.g. www.example.com). Empty = CloudFront domain only."
 }
 
 variable "acm_certificate_arn" {
-  description = "ARN of the ACM certificate in us-east-1 for CloudFront. Leave empty to skip custom domain."
   type        = string
   default     = ""
+  description = "ACM certificate in us-east-1 covering hostname (and apex_host when redirect_apex is true)."
+
   validation {
     condition     = var.acm_certificate_arn == "" || can(regex("^arn:aws:acm:us-east-1:[0-9]{12}:certificate/.+$", var.acm_certificate_arn))
-    error_message = "CloudFront requires an ACM cert in us-east-1. Provide an ARN like arn:aws:acm:us-east-1:ACCOUNT_ID:certificate/UUID."
+    error_message = "CloudFront requires an ACM certificate in us-east-1 (arn:aws:acm:us-east-1:ACCOUNT_ID:certificate/UUID)."
   }
 }
 
-variable "price_class" {
-  description = "CloudFront price class."
-  type        = string
-  default     = "PriceClass_100"
+variable "redirect_apex" {
+  type        = bool
+  default     = false
+  description = "Also serve apex_host and redirect it (301) to hostname."
 }
 
+variable "apex_host" {
+  type        = string
+  default     = ""
+  description = "Apex domain redirected to hostname when redirect_apex is true."
+}
 
-data "aws_region" "current" {}
+variable "lambda_layer_arn" {
+  type        = string
+  description = "Lambda layer attached to the SSR function."
+}
 
-# Get the current account id
-data "aws_canonical_user_id" "current" {}
-data "aws_caller_identity" "current" {}
+variable "lambda_role_arn" {
+  type        = string
+  description = "Execution role of the SSR function."
+}
+
+variable "lambda_zip_path" {
+  type        = string
+  description = "Initial code package of the SSR function."
+}
+
+variable "lambda_memory_size" {
+  type    = number
+  default = 512
+}
+
+variable "log_retention_days" {
+  type    = number
+  default = 30
+}
+
+variable "price_class" {
+  type    = string
+  default = "PriceClass_100"
+}

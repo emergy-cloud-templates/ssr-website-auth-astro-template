@@ -1,6 +1,6 @@
-import { toggleSidebar, toggleMobileMenu } from '../../stores/sidebar';
-import { ProfileDropdown } from './ProfileDropdown';
-import { IconMenu, IconPanelLeftClose, IconPanelLeftOpen } from '../icons';
+import { toggleMobileMenu, toggleSidebar } from "../../stores/sidebar";
+import { IconMenu, IconPanelLeftClose, IconPanelLeftOpen } from "../icons";
+import { ProfileDropdown } from "./ProfileDropdown";
 
 interface HeaderProps {
   email: string;
@@ -11,42 +11,32 @@ interface HeaderProps {
 
 export function Header({ email, name, title, collapsed }: HeaderProps) {
   return (
-    <header class="sticky top-0 z-30 bg-white border-b border-gray-200">
-      <div class="flex items-center justify-between h-16 px-4 sm:px-6 lg:px-8">
-        {/* Left side */}
-        <div class="flex items-center gap-4">
-          {/* Mobile menu button */}
+    <header class="sticky top-0 z-30 border-b border-gray-200 bg-white">
+      <div class="flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
+        <div class="flex min-w-0 items-center gap-4">
           <button
             type="button"
-            class="lg:hidden p-2 -ml-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 cursor-pointer"
+            class="-ml-2 rounded-md p-2 text-gray-600 hover:bg-gray-100 hover:text-gray-900 lg:hidden"
             onClick={toggleMobileMenu}
+            aria-label="Open navigation"
           >
             <IconMenu class="h-6 w-6" />
           </button>
 
-          {/* Desktop collapse button */}
           <button
             type="button"
             onClick={toggleSidebar}
-            class="hidden lg:flex p-2 -ml-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 cursor-pointer"
-            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            class="-ml-2 hidden rounded-md p-2 text-gray-600 hover:bg-gray-100 hover:text-gray-900 lg:flex"
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
-            {collapsed ? (
-              <IconPanelLeftOpen class="h-5 w-5" />
-            ) : (
-              <IconPanelLeftClose class="h-5 w-5" />
-            )}
+            {collapsed ? <IconPanelLeftOpen class="h-5 w-5" /> : <IconPanelLeftClose class="h-5 w-5" />}
           </button>
 
-          {title && (
-            <h1 class="text-lg font-semibold text-gray-900">{title}</h1>
-          )}
+          {title && <h1 class="truncate text-lg font-semibold text-gray-900">{title}</h1>}
         </div>
 
-        {/* Right side - Profile dropdown */}
-        <div class="flex items-center gap-4">
-          <ProfileDropdown email={email} name={name} />
-        </div>
+        <ProfileDropdown email={email} name={name} />
       </div>
     </header>
   );

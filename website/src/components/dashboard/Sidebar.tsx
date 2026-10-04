@@ -1,102 +1,79 @@
-import { useStore } from '@nanostores/preact';
-import { $mobileMenuOpen, closeMobileMenu } from '../../stores/sidebar';
-import { IconHome, IconSettings, IconX } from '../icons';
+import { useStore } from "@nanostores/preact";
+
+import { siteConfig } from "../../config/site";
+import { matchesRoute } from "../../lib/routes";
+import { $mobileMenuOpen, closeMobileMenu } from "../../stores/sidebar";
+import { IconHome, IconSettings, IconX } from "../icons";
 
 interface SidebarProps {
   currentPath: string;
   collapsed: boolean;
-  /** After false → true, width/transform transitions run (avoids animating SSR → stored state). */
+  /** Off until hydration settles, so the stored state is applied without an animation. */
   sidebarTransitionEnabled: boolean;
 }
 
-interface NavItem {
-  name: string;
-  href: string;
-  icon: 'home' | 'settings';
-}
-
-const navItems: NavItem[] = [
-  { name: 'Dashboard', href: '/dashboard', icon: 'home' },
-  { name: 'Settings', href: '/account', icon: 'settings' },
+/** Sidebar navigation. Add your app's sections here (and to PROTECTED_ROUTES). */
+const NAV_ITEMS = [
+  { name: "Dashboard", href: "/dashboard", Icon: IconHome },
+  { name: "Settings", href: "/account", Icon: IconSettings },
 ];
-
-const icons = {
-  home: IconHome,
-  settings: IconSettings,
-};
 
 export function Sidebar({ currentPath, collapsed, sidebarTransitionEnabled }: SidebarProps) {
   const mobileOpen = useStore($mobileMenuOpen);
 
-  const isActive = (href: string) => {
-    if (href === '/dashboard') {
-      return currentPath === '/dashboard' || currentPath === '/dashboard/';
-    }
-    return currentPath.startsWith(href);
-  };
-
   return (
     <>
-      {/* Mobile backdrop */}
       {mobileOpen && (
         <div
-          class="lg:hidden fixed inset-0 z-40 bg-gray-900/50 backdrop-blur-sm cursor-pointer"
+          class="fixed inset-0 z-40 bg-gray-900/50 backdrop-blur-sm lg:hidden"
           onClick={closeMobileMenu}
+          aria-hidden="true"
         />
       )}
 
-      {/* Sidebar */}
       <aside
-        class={`fixed inset-y-0 left-0 z-50 flex flex-col bg-white border-r border-gray-200 ease-in-out
-          ${sidebarTransitionEnabled
-            ? 'duration-300 max-lg:transition-transform lg:transition-[width] lg:duration-300'
-            : 'max-lg:transition-none lg:transition-none'}
-          ${mobileOpen ? 'max-lg:translate-x-0' : 'max-lg:-translate-x-full'}
-          lg:translate-x-0
-          ${collapsed ? 'lg:w-20' : 'lg:w-64'}
-          w-64
-        `}
+        class={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-gray-200 bg-white ease-in-out lg:translate-x-0 ${
+          sidebarTransitionEnabled
+            ? "duration-300 max-lg:transition-transform lg:transition-[width]"
+            : "transition-none"
+        } ${mobileOpen ? "max-lg:translate-x-0" : "max-lg:-translate-x-full"} ${collapsed ? "lg:w-20" : "lg:w-64"}`}
       >
-        {/* Logo */}
-        <div class="flex items-center h-16 px-4 border-b border-gray-200">
-          <a href="/dashboard" class="flex items-center gap-2 cursor-pointer">
-            <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center flex-shrink-0">
-              <span class="text-white font-bold text-sm">U</span>
-            </div>
-            {!collapsed && <span class="text-xl font-bold text-gray-900">Template</span>}
+        <div class="flex h-16 items-center border-b border-gray-200 px-4">
+          <a href="/dashboard" class="flex items-center gap-2">
+            <span
+              class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-sm font-bold text-white"
+              aria-hidden="true"
+            >
+              {siteConfig.name.charAt(0)}
+            </span>
+            <span class={`text-xl font-bold text-gray-900 ${collapsed ? "lg:sr-only" : ""}`}>{siteConfig.name}</span>
           </a>
-          
-          {/* Mobile close button */}
           <button
             type="button"
-            class="lg:hidden ml-auto p-1 rounded-md text-gray-400 hover:text-gray-600 cursor-pointer"
+            class="ml-auto rounded-md p-1 text-gray-500 hover:text-gray-700 lg:hidden"
             onClick={closeMobileMenu}
+            aria-label="Close navigation"
           >
             <IconX class="h-6 w-6" />
           </button>
         </div>
 
-        {/* Navigation */}
-        <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {navItems.map((item) => {
-            const active = isActive(item.href);
-            const IconComponent = icons[item.icon];
+        <nav class="flex-1 space-y-1 overflow-y-auto px-3 py-4" aria-label="Main">
+          {NAV_ITEMS.map(({ name, href, Icon }) => {
+            const active = matchesRoute(currentPath, href);
             return (
               <a
-                key={item.href}
-                href={item.href}
+                key={href}
+                href={href}
                 onClick={closeMobileMenu}
-                class={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors cursor-pointer
-                  ${active
-                    ? 'bg-indigo-50 text-indigo-600'
-                    : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
-                  }
-                  ${collapsed ? 'justify-center' : ''}
-                `}
-                title={collapsed ? item.name : undefined}
+                aria-current={active ? "page" : undefined}
+                title={collapsed ? name : undefined}
+                class={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                  active ? "bg-indigo-50 text-indigo-700" : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                } ${collapsed ? "lg:justify-center" : ""}`}
               >
-                <IconComponent class={`h-5 w-5 flex-shrink-0 ${active ? 'text-indigo-600' : 'text-gray-400'}`} />
-                {!collapsed && <span>{item.name}</span>}
+                <Icon class={`h-5 w-5 shrink-0 ${active ? "text-indigo-600" : "text-gray-500"}`} />
+                <span class={collapsed ? "lg:sr-only" : ""}>{name}</span>
               </a>
             );
           })}

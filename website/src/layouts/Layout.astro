@@ -1,21 +1,32 @@
 ---
+import "../styles/global.css";
+
+import { siteConfig } from "../config/site";
+
 interface Props {
   title: string;
+  description?: string;
 }
-import "./../styles/global.css";
-const { title } = Astro.props;
+
+const { title, description = siteConfig.description } = Astro.props;
 ---
 
 <!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Template - Find your perfect match" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <title>{title} | Template</title>
+    <title>{`${title} | ${siteConfig.name}`}</title>
   </head>
-  <body class="min-h-screen bg-gray-50 antialiased">
+  <body class="min-h-screen bg-gray-50 text-gray-900 antialiased">
+    <a
+      href="#main"
+      class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-white focus:px-4 focus:py-2 focus:shadow"
+    >
+      Skip to content
+    </a>
     <slot />
   </body>
 </html>
