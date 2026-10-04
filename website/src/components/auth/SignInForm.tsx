@@ -1,68 +1,34 @@
-import { useState, useRef } from 'preact/hooks';
-import { Input } from '../ui/Input';
-import { Button } from '../ui/Button';
-import { Alert } from '../ui/Alert';
+import { useFormAction } from "../../lib/client/useFormAction";
+import { Alert } from "../ui/Alert";
+import { Button } from "../ui/Button";
+import { Input } from "../ui/Input";
 
-export function SignInForm() {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const lastSubmitRef = useRef<number>(0);
+interface SignInFormProps {
+  /** Where to go after signing in (validated again on the server). */
+  redirectTo?: string;
+  /** Message carried in the URL, e.g. after an expired link. */
+  notice?: string;
+}
 
-  const handleSubmit = async (e: Event) => {
-    e.preventDefault();
-
-    // Simple throttle - prevent rapid submissions
-    const now = Date.now();
-    if (now - lastSubmitRef.current < 1000) {
-      return;
-    }
-    lastSubmitRef.current = now;
-
-    setLoading(true);
-    setError(null);
-
-    const form = e.target as HTMLFormElement;
-    const formData = new FormData(form);
-
-    // Client-side validation
-    const email = formData.get('email')?.toString()?.trim();
-    const password = formData.get('password')?.toString();
-
-    if (!email || !password) {
-      setError('Please fill in all fields');
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const response = await fetch('/api/auth/signin', {
-        method: 'POST',
-        body: formData,
-        credentials: 'same-origin',
-      });
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.error || 'An error occurred');
-        return;
-      }
-      window.location.href = '/dashboard';
-    } catch {
-      setError('An unexpected error occurred. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
+export function SignInForm({ redirectTo, notice }: SignInFormProps) {
+  const { loading, error, onSubmit } = useFormAction<{ redirectTo: string }>("/api/auth/signin", {
+    onSuccess: (data) => window.location.assign(data.redirectTo),
+  });
 
   return (
-    <form class="space-y-6" onSubmit={handleSubmit}>
-      {error && <Alert type="error" message={error} />}
+    <form class="space-y-6" onSubmit={onSubmit} noValidate>
+      {error ? <Alert type="error">{error}</Alert> : notice && <Alert type="info">{notice}</Alert>}
+      {redirectTo && <input type="hidden" name="redirectTo" value={redirectTo} />}
       <Input id="email" name="email" type="email" label="Email address" autocomplete="email" required />
       <Input id="password" name="password" type="password" label="Password" autocomplete="current-password" required />
       <div class="text-sm">
-        <a href="/auth/reset-password" class="font-medium text-indigo-600 hover:text-indigo-500 cursor-pointer">Forgot your password?</a>
+        <a href="/auth/reset-password" class="font-medium text-indigo-600 hover:text-indigo-500">
+          Forgot your password?
+        </a>
       </div>
-      <Button type="submit" loading={loading}>Sign in</Button>
+      <Button type="submit" loading={loading}>
+        Sign in
+      </Button>
     </form>
   );
 }

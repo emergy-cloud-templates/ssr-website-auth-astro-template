@@ -1,47 +1,57 @@
 ---
-import DashboardLayout from '../../layouts/DashboardLayout.astro';
-import { ProfileForm } from '../../components/account/ProfileForm';
-import { ChangePasswordForm } from '../../components/account/ChangePasswordForm';
-import { DeleteAccountForm } from '../../components/account/DeleteAccountForm';
+import { ChangePasswordForm } from "../../components/account/ChangePasswordForm";
+import { DeleteAccountForm } from "../../components/account/DeleteAccountForm";
+import { ProfileForm } from "../../components/account/ProfileForm";
+import DashboardLayout from "../../layouts/DashboardLayout.astro";
 
 const user = Astro.locals.user;
-const name = user?.user_metadata?.name || '';
-const email = user?.email || '';
 ---
 
-<DashboardLayout title="Account Settings" pageTitle="Account Settings">
+<DashboardLayout title="Account settings" pageTitle="Account settings">
   <div class="max-w-4xl space-y-8">
-    <!-- Profile Section -->
-    <div class="bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden">
-      <div class="px-6 py-4 border-b border-gray-200">
-        <h2 class="text-lg font-semibold text-gray-900">Profile Information</h2>
-        <p class="mt-1 text-sm text-gray-500">Update your personal information.</p>
+    <section
+      class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
+      aria-labelledby="profile-heading"
+    >
+      <div class="border-b border-gray-200 px-6 py-4">
+        <h2 id="profile-heading" class="text-lg font-semibold text-gray-900">
+          Profile
+        </h2>
+        <p class="mt-1 text-sm text-gray-600">Update your personal information.</p>
       </div>
       <div class="px-6 py-6">
-        <ProfileForm client:load initialName={name} email={email} />
+        <ProfileForm client:load initialName={user?.name ?? ""} email={user?.email ?? ""} />
       </div>
-    </div>
+    </section>
 
-    <!-- Password Section -->
-    <div class="bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden">
-      <div class="px-6 py-4 border-b border-gray-200">
-        <h2 class="text-lg font-semibold text-gray-900">Change Password</h2>
-        <p class="mt-1 text-sm text-gray-500">Ensure your account stays secure by using a strong password.</p>
+    <section
+      class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
+      aria-labelledby="password-heading"
+    >
+      <div class="border-b border-gray-200 px-6 py-4">
+        <h2 id="password-heading" class="text-lg font-semibold text-gray-900">
+          Change password
+        </h2>
+        <p class="mt-1 text-sm text-gray-600">Use a strong password you do not use anywhere else.</p>
       </div>
       <div class="px-6 py-6">
         <ChangePasswordForm client:load />
       </div>
-    </div>
+    </section>
 
-    <!-- Delete Account Section -->
-    <div class="bg-white shadow-sm rounded-xl border border-red-200 overflow-hidden">
-      <div class="px-6 py-4 border-b border-red-200 bg-red-50">
-        <h2 class="text-lg font-semibold text-red-600">Danger Zone</h2>
-        <p class="mt-1 text-sm text-red-500">Permanently delete your account and all associated data.</p>
+    <section
+      class="overflow-hidden rounded-xl border border-red-200 bg-white shadow-sm"
+      aria-labelledby="danger-heading"
+    >
+      <div class="border-b border-red-200 bg-red-50 px-6 py-4">
+        <h2 id="danger-heading" class="text-lg font-semibold text-red-700">
+          Danger zone
+        </h2>
+        <p class="mt-1 text-sm text-red-700">Permanently delete your account and all associated data.</p>
       </div>
       <div class="px-6 py-6">
         <DeleteAccountForm client:load />
       </div>
-    </div>
+    </section>
   </div>
 </DashboardLayout>

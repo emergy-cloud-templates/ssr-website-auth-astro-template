@@ -1,8 +1,10 @@
-import { useLayoutEffect, useState } from 'preact/hooks';
-import { useStore } from '@nanostores/preact';
-import { $sidebarCollapsed, syncSidebarCollapsedFromStorage } from '../../stores/sidebar';
-import { Sidebar } from './Sidebar';
-import { Header } from './Header';
+import { useStore } from "@nanostores/preact";
+import type { ComponentChildren } from "preact";
+import { useLayoutEffect, useState } from "preact/hooks";
+
+import { $sidebarCollapsed, syncSidebarCollapsedFromStorage } from "../../stores/sidebar";
+import { Header } from "./Header";
+import { Sidebar } from "./Sidebar";
 
 interface DashboardShellProps {
   email: string;
@@ -11,10 +13,10 @@ interface DashboardShellProps {
   currentPath: string;
   /** From SSR cookie so first paint matches saved preference (no expand→collapse flicker). */
   initialSidebarCollapsed?: boolean;
-  children: preact.ComponentChildren;
+  children: ComponentChildren;
 }
 
-type ShellPhase = 'ssr' | 'synced' | 'interactive';
+type ShellPhase = "ssr" | "synced" | "interactive";
 
 export function DashboardShell({
   email,
@@ -25,38 +27,34 @@ export function DashboardShell({
   children,
 }: DashboardShellProps) {
   const storeCollapsed = useStore($sidebarCollapsed);
-  const [phase, setPhase] = useState<ShellPhase>('ssr');
+  const [phase, setPhase] = useState<ShellPhase>("ssr");
 
-  const collapsed = phase === 'ssr' ? initialSidebarCollapsed : storeCollapsed;
-  const sidebarTransitionEnabled = phase === 'interactive';
+  const collapsed = phase === "ssr" ? initialSidebarCollapsed : storeCollapsed;
+  const sidebarTransitionEnabled = phase === "interactive";
 
   useLayoutEffect(() => {
     syncSidebarCollapsedFromStorage();
-    setPhase('synced');
+    setPhase("synced");
   }, []);
 
   useLayoutEffect(() => {
-    if (phase !== 'synced') return;
+    if (phase !== "synced") return;
     const id = requestAnimationFrame(() => {
-      setPhase('interactive');
+      setPhase("interactive");
     });
     return () => cancelAnimationFrame(id);
   }, [phase]);
 
   return (
     <div class="min-h-screen bg-gray-50">
-      <Sidebar
-        currentPath={currentPath}
-        collapsed={collapsed}
-        sidebarTransitionEnabled={sidebarTransitionEnabled}
-      />
+      <Sidebar currentPath={currentPath} collapsed={collapsed} sidebarTransitionEnabled={sidebarTransitionEnabled} />
 
       <div
-        class={`${sidebarTransitionEnabled ? 'lg:transition-[padding-left] lg:duration-300 lg:ease-in-out' : ''} ${collapsed ? 'lg:pl-20' : 'lg:pl-64'}`}
+        class={`${sidebarTransitionEnabled ? "lg:transition-[padding-left] lg:duration-300 lg:ease-in-out" : ""} ${collapsed ? "lg:pl-20" : "lg:pl-64"}`}
       >
         <Header email={email} name={name} title={title} collapsed={collapsed} />
-        
-        <main class="p-4 sm:p-6 lg:p-8">
+
+        <main id="main" class="p-4 sm:p-6 lg:p-8">
           {children}
         </main>
       </div>

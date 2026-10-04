@@ -1,0 +1,8 @@
+dist/
+ssr_dist/
+.astro/
+.data/
+node_modules/
+test-results/
+playwright-report/
+pnpm-lock.yaml

@@ -1,6 +1,6 @@
 ---
-import Layout from './Layout.astro';
-import { DashboardShell } from '../components/dashboard/DashboardShell';
+import { DashboardShell } from "../components/dashboard/DashboardShell";
+import Layout from "./Layout.astro";
 
 interface Props {
   title: string;
@@ -9,19 +9,16 @@ interface Props {
 
 const { title, pageTitle } = Astro.props;
 const user = Astro.locals.user;
-const name = user?.user_metadata?.name || '';
-const email = user?.email || '';
-const currentPath = Astro.url.pathname;
-const initialSidebarCollapsed = Astro.cookies.get('sidebar-collapsed')?.value === 'true';
+const initialSidebarCollapsed = Astro.cookies.get("sidebar-collapsed")?.value === "true";
 ---
 
 <Layout title={title}>
-  <DashboardShell 
+  <DashboardShell
     client:load
-    email={email} 
-    name={name} 
+    email={user?.email ?? ""}
+    name={user?.name ?? ""}
     title={pageTitle}
-    currentPath={currentPath}
+    currentPath={Astro.url.pathname}
     initialSidebarCollapsed={initialSidebarCollapsed}
   >
     <slot />

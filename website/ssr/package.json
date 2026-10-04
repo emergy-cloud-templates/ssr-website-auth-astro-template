@@ -1,14 +1,6 @@
 {
-  "name": "ssr",
-  "version": "1.0.0",
+  "name": "ssr-lambda",
+  "private": true,
   "type": "module",
-  "main": "lambda.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "dependencies": {},
-  "description": ""
+  "main": "lambda.js"
 }

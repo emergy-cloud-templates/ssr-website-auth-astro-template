@@ -1,193 +1,172 @@
 # SSR Website Auth Astro Template
 
-Open-source template for building authenticated websites with Astro SSR. It
-combines Astro server rendering, Supabase Auth, account and dashboard screens,
-and an AWS deployment blueprint so a new project can start with the hard auth
-and infrastructure glue already connected.
+A production-ready starting point for an **authenticated, server-rendered
+website**: Astro SSR, Supabase Auth, account management, a protected dashboard,
+and a complete AWS deployment (CloudFront + S3 + API Gateway + Lambda) driven
+by Terraform and GitHub Actions.
 
-This repository is the first template in a planned free library of
-production-oriented open-source app templates. The goal is to make common stacks
-easier to start from while documenting the security and deployment tradeoffs
-that usually get skipped in small examples.
+It runs on your laptop in two minutes **without any account** (a built-in
+SQLite auth backend), and in production on Supabase + AWS.
 
-## Why This Exists
+| Home | Sign in | Dashboard | Account |
+| --- | --- | --- | --- |
+| ![Home page](docs/images/home.png) | ![Sign in](docs/images/sign-in.png) | ![Dashboard](docs/images/dashboard.png) | ![Account settings](docs/images/account.png) |
 
-Astro is excellent for content-heavy websites, but real products often need more
-than static pages: session-aware SSR, protected routes, password flows, account
-management, secure cookies, static asset caching, and a repeatable deploy path.
-This template is meant to close that gap for solo builders, small teams, and
-open-source maintainers who want a practical baseline instead of another toy
-starter.
+## Features
 
-## Project Direction
+- **Complete auth flows**: sign up, email confirmation, sign in, sign out,
+  forgot / reset password, profile update, password change, account deletion.
+- **Server-side sessions**: httpOnly cookies refreshed in middleware; the
+  browser never holds a token. Protected routes, guest-only routes, safe
+  "return to the page you wanted" redirects.
+- **Two auth backends, one interface**: Supabase in production, a zero-setup
+  local SQLite backend (with a dev mailbox for emails) for development and tests.
+- **AWS hosting as code**: CloudFront in front of a private S3 bucket (static
+  assets) and a Lambda (SSR), security headers, optional custom domains, one
+  isolated stack per environment (`dev`, `staging`, `prod`).
+- **CI/CD**: push a branch and it is live on `dev`; open a PR for `staging`;
+  merge for `prod`. Deploy or roll back any build to any environment from the
+  GitHub UI.
+- **Tested**: 100+ unit tests, browser end-to-end tests with accessibility
+  checks (run against the real Lambda bundle), a packaged-Lambda smoke test,
+  and offline Terraform tests.
+- **AI-assistant ready**: `AGENTS.md` / `CLAUDE.md` project rules, a `/ship`
+  command that verifies, commits and pushes (which deploys), and an optional
+  `@claude` GitHub Action.
 
-This repo is intended to be a maintained example, not a one-off scaffold. The
-longer-term plan is to publish more open-source templates and a free website
-where developers can browse them, compare stacks, and start projects from
-documented secure defaults.
+## Quick start (local, no account needed)
 
-Future templates should follow the same principles:
-
-- Reusable by default.
-- Clear about security assumptions.
-- Practical enough to deploy.
-- Small enough to understand.
-- Free for the community to use.
-
-## What Is Included
-
-- Astro configured for server output with the Node middleware adapter.
-- Supabase SSR auth using cookie-aware server and browser clients.
-- Sign up, sign in, sign out, password reset, password update, profile update,
-  and account deletion flows.
-- Protected `/dashboard` and `/account` routes through Astro middleware.
-- Preact components for interactive auth, account, and dashboard UI.
-- Tailwind CSS styling.
-- AWS infrastructure modules for CloudFront, private S3 static assets, API
-  Gateway, Lambda SSR, Lambda layers, response security headers, and optional
-  custom domains.
-- GitHub Actions workflows for build, deployment, infrastructure updates, and
-  infrastructure deletion.
-- Dev, staging, and production environment structure.
-
-## Repository Layout
-
-```text
-.
-├── website/                  # Astro SSR app
-│   ├── src/                  # Pages, layouts, middleware, components, stores
-│   ├── ssr/                  # Lambda adapter wrapper for Astro server output
-│   └── public/               # Static public assets
-├── infrastructure/           # Terraform for AWS hosting
-│   ├── modules/website_ssr/  # CloudFront, S3, API Gateway, Lambda module
-│   └── lambda_layer/         # Node dependencies packaged for Lambda
-├── .github/workflows/        # CI, deploy, and infrastructure workflows
-├── docs/                     # Architecture and security notes
-├── manual.md                 # Manual local deployment notes
-└── answers.md                # Draft Claude for Open Source application answers
-```
-
-## Quick Start
-
-Prerequisites:
-
-- Node.js 20 or newer.
-- pnpm 10 or newer.
-- A Supabase project with email auth enabled.
-
-Install and run locally:
+Requirements: **Node.js 22.13+** (24 recommended) and **pnpm** (`corepack enable`).
 
 ```sh
-cd website
+git clone <your-repo-url> my-app && cd my-app/website
 pnpm install
-cp .env.example .env
-```
-
-Set the local environment variables:
-
-```sh
-PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
-```
-
-Start the dev server:
-
-```sh
 pnpm dev
 ```
 
-Build the app:
+Open http://localhost:4321 and create an account. With no configuration the
+app uses the **local auth provider**: users live in `website/.data/`, and the
+emails it would send (confirmation, password reset) are listed at
+http://localhost:4321/dev/mailbox.
 
-```sh
-pnpm build
+To use Supabase instead, copy `website/.env.example` to `website/.env` and
+fill in your project URL and publishable key. Everything else stays the same.
+See [Local development](docs/local-development.md).
+
+## How it works
+
+```mermaid
+flowchart LR
+  Browser -->|HTTPS| CF[CloudFront]
+  CF -->|/_astro/*, favicon, robots.txt| S3[(S3: static assets)]
+  CF -->|everything else| APIGW[API Gateway]
+  APIGW --> Lambda[Lambda: Astro SSR]
+  Lambda -->|auth| Supabase[(Supabase Auth)]
+  Lambda -.->|cold start| SM[(Secrets Manager)]
 ```
 
-Build and exercise the Lambda SSR package locally:
+- **Astro** renders pages on the server. `src/middleware.ts` resolves the
+  signed-in user on every request and applies the route rules.
+- **Auth** goes through one interface (`src/lib/auth`). The Supabase provider
+  uses `@supabase/ssr` with httpOnly cookies; the local provider uses Node's
+  built-in SQLite. Pick one with environment variables, no code change.
+- **AWS**: static files come from S3 through CloudFront; every other request
+  goes to a Lambda running the Astro server build. Runtime configuration
+  (Supabase keys) is loaded from AWS Secrets Manager at cold start, never baked
+  into the build.
+- **Terraform** (`infrastructure/`) creates one isolated stack per enabled
+  environment. **GitHub Actions** build once per commit and promote that same
+  artifact through `dev`, `staging` and `prod`.
 
-```sh
-pnpm test:ssr
+Details: [Architecture](docs/architecture.md).
+
+## Deployment flow
+
+```mermaid
+flowchart LR
+  A[git push feature branch] --> B[Build: lint, types, tests, bundle]
+  B --> C[Deploy dev]
+  D[Open / update PR to main] --> B2[Build] --> E[Deploy staging]
+  F[Merge PR] --> G[Deploy prod, same artifact]
+  H[Actions > Build > Run workflow] --> I[Deploy to the environments you pick]
 ```
 
-## Authentication Model
+| You do | What happens |
+| --- | --- |
+| Push to any branch except `main` | Build + deploy to **dev** |
+| Open or update a PR to `main` | Build + deploy to **staging** (if enabled) |
+| Merge the PR | The PR's artifact is promoted to **prod** (no rebuild) |
+| Run **Build** manually | Build, then deploy to the environments you list (or all) |
+| Run **Deploy** manually | Deploy any previously built commit to one environment (rollback) |
+| Push changes under `infrastructure/` to `main` | Terraform apply for every enabled environment |
 
-The app uses `@supabase/ssr` for session handling across server-rendered pages,
-API routes, and browser components.
+Details and first-time AWS setup: [Deployment](docs/deployment.md).
 
-- `website/src/lib/supabase.ts` creates browser and server Supabase clients.
-- `website/src/middleware.ts` reads the current user, refreshes sessions when
-  possible, redirects unauthenticated users away from protected pages, and
-  redirects signed-in users away from auth pages.
-- `website/src/pages/api/auth/*` implements auth form actions.
-- `website/src/pages/api/account/*` implements account updates.
+## Work on it with an AI assistant
 
-Protected routes currently include:
+The repository is set up so an AI coding assistant (Claude Code, Codex, Cursor,
+Copilot...) can work on it safely:
 
-- `/dashboard`
-- `/account`
+- [`AGENTS.md`](AGENTS.md) holds the project rules: commands, structure,
+  conventions, and what never to touch (secrets, `main`, state files).
+  `CLAUDE.md` imports it for Claude Code.
+- In Claude Code, **`/ship`** runs the checks, writes a conventional commit
+  and pushes your branch, which deploys it to `dev`. **`/deploy staging`**
+  triggers a deployment of an environment through GitHub Actions.
+- Optional: mention **`@claude`** in an issue or PR and the
+  [Claude GitHub Action](.github/workflows/claude.yml) answers, reviews, or
+  opens a PR.
 
-Auth routes currently include:
-
-- `/auth/signin`
-- `/auth/signup`
-- `/auth/reset-password`
-
-## AWS Deployment Model
-
-The infrastructure is designed around a split static and SSR deployment:
-
-- S3 stores static client assets privately.
-- CloudFront serves static assets from S3 through Origin Access Control.
-- CloudFront sends dynamic SSR requests to API Gateway.
-- API Gateway invokes the Lambda SSR function.
-- Lambda runs the Astro server output through `website/ssr/lambda.js`.
-- Terraform creates separate dev, staging, and production website stacks.
-
-Before using the workflows, configure the required GitHub repository variables
-and secrets for AWS OIDC, Terraform state, and optional custom domains.
-The exact names should match the workflow files under `.github/workflows/`.
-
-Runtime app secrets (for example the Supabase URL and anon key) are not
-Terraform variables or GitHub secrets. Each environment reads one AWS Secrets
-Manager JSON secret named `<env>/<project_id>` (for example
-`prod/example-project`) at Lambda cold start. Create it per environment with
-the keys listed in `infrastructure/required-secret-keys.txt` before deploying.
-
-For a manual deployment flow, see [manual.md](./manual.md).
+Details: [AI assistant](docs/ai-assistant.md).
 
 ## Documentation
 
-- [Architecture](./docs/ARCHITECTURE.md)
-- [Security checklist](./docs/SECURITY_CHECKLIST.md)
-- [Roadmap](./ROADMAP.md)
-- [Contributing](./CONTRIBUTING.md)
-- [Security policy](./SECURITY.md)
-- [Support](./SUPPORT.md)
+| Guide | What it covers |
+| --- | --- |
+| [Getting started](docs/getting-started.md) | First-time setup checklist: Supabase, AWS, GitHub, first deploy |
+| [Local development](docs/local-development.md) | Local SQLite mode, Supabase CLI, hosted Supabase, commands |
+| [Configuration](docs/configuration.md) | Every environment variable, secret and repository variable |
+| [Architecture](docs/architecture.md) | Request flow, auth design, Lambda adapter, caching, security |
+| [Deployment](docs/deployment.md) | CI/CD pipeline, environments, manual deploys, domains, rollback |
+| [Customization](docs/customization.md) | Rename, add pages and API routes, store user data |
+| [Testing](docs/testing.md) | Unit, end-to-end, Lambda smoke and Terraform tests |
+| [AI assistant](docs/ai-assistant.md) | AGENTS.md, `/ship`, `@claude` |
+| [Security checklist](docs/SECURITY_CHECKLIST.md) | What to review before going live |
 
-## Open-Source Readiness
+## Repository layout
 
-This repository is intended to be reusable by other developers. Before publishing
-or promoting a fork publicly, review these items:
+```text
+.
+├── website/                 Astro app (pnpm project)
+│   ├── src/
+│   │   ├── middleware.ts    session + route protection on every request
+│   │   ├── lib/auth/        auth interface, Supabase + local providers
+│   │   ├── pages/           pages, API routes (pages/api), /auth/callback
+│   │   ├── components/      Preact islands (forms, dashboard shell, UI)
+│   │   └── layouts/         page shells
+│   ├── ssr/                 AWS Lambda adapter + local Lambda server
+│   ├── tests/               unit (Vitest) and e2e (Playwright) tests
+│   └── supabase/            config for the local Supabase stack (optional)
+├── infrastructure/          Terraform (AWS), bootstrap, tests
+├── scripts/deploy.sh        manual deploys from your machine
+├── .github/workflows/       CI, build, deploy, infrastructure, Claude
+├── docs/                    guides
+└── AGENTS.md                rules for AI assistants (and humans)
+```
 
-- Keep `.env` files out of git. Only commit `.env.example`.
-- Keep Terraform state out of git. New `*.tfstate` files are ignored.
-- Rotate any credentials that were ever committed or shared.
-- Keep the template generic: avoid committing project-specific domains, account
-  IDs, or customer data.
-- Review the CI workflows after changing package managers or environment names.
+## Commands
 
-## Contributing
+Run from `website/`:
 
-Issues and pull requests are welcome. Useful contributions include:
+| Command | Purpose |
+| --- | --- |
+| `pnpm dev` | Dev server on http://localhost:4321 |
+| `pnpm verify` | Everything CI checks: lint, format, types, unit tests, Lambda smoke test |
+| `pnpm test` / `pnpm test:e2e` | Unit tests / browser tests |
+| `pnpm preview` | Build the Lambda bundle and serve it locally like AWS does |
+| `pnpm build && pnpm prepare:aws` | Production build + Lambda bundle in `ssr_dist/` |
 
-- More deployment-provider variants.
-- Better environment bootstrapping docs.
-- Auth/session hardening.
-- Tests for auth API routes and middleware redirects.
-- Smaller Lambda package output.
-- Accessibility and UI improvements.
+## Contributing, security, license
 
-Please keep changes template-friendly and avoid adding private project details.
-
-## License
-
-MIT. See [LICENSE](./LICENSE).
+[Contributing](CONTRIBUTING.md) · [Security policy](SECURITY.md) ·
+[Support](SUPPORT.md) · [Roadmap](ROADMAP.md) · MIT [License](LICENSE)

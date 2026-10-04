@@ -1,55 +1,54 @@
-import { useState } from 'preact/hooks';
-import { Input } from '../ui/Input';
-import { Button } from '../ui/Button';
-import { Alert } from '../ui/Alert';
+import { useState } from "preact/hooks";
+
+import { useFormAction } from "../../lib/client/useFormAction";
+import { PASSWORD_HINT, validatePassword } from "../../lib/validation";
+import { Alert } from "../ui/Alert";
+import { Button } from "../ui/Button";
+import { Input } from "../ui/Input";
 
 export function SignUpForm() {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [checkEmail, setCheckEmail] = useState(false);
+  const { loading, error, onSubmit } = useFormAction<{ signedIn: boolean; redirectTo: string }>("/api/auth/signup", {
+    validate: (form) => {
+      const password = String(form.get("password") ?? "");
+      if (password !== form.get("confirmPassword")) return "Passwords do not match.";
+      return validatePassword(password);
+    },
+    onSuccess: (data) => {
+      if (data.signedIn) window.location.assign(data.redirectTo);
+      else setCheckEmail(true);
+    },
+  });
 
-  const handleSubmit = async (e: Event) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-
-    const form = e.target as HTMLFormElement;
-    const formData = new FormData(form);
-
-    if (formData.get('password') !== formData.get('confirmPassword')) {
-      setError('Passwords do not match');
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const response = await fetch('/api/auth/signup', { method: 'POST', body: formData });
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.error || 'An error occurred');
-        return;
-      }
-      setSuccess(true);
-    } catch {
-      setError('An unexpected error occurred');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (success) {
-    return <Alert type="success" message="Check your email for a confirmation link to complete your registration." />;
+  if (checkEmail) {
+    return <Alert type="success">Check your email for a confirmation link to finish creating your account.</Alert>;
   }
 
   return (
-    <form class="space-y-6" onSubmit={handleSubmit}>
-      {error && <Alert type="error" message={error} />}
+    <form class="space-y-6" onSubmit={onSubmit} noValidate>
+      {error && <Alert type="error">{error}</Alert>}
       <Input id="name" name="name" type="text" label="Full name" autocomplete="name" required />
       <Input id="email" name="email" type="email" label="Email address" autocomplete="email" required />
-      <Input id="password" name="password" type="password" label="Password" autocomplete="new-password" minLength={8} required />
-      <Input id="confirmPassword" name="confirmPassword" type="password" label="Confirm password" autocomplete="new-password" minLength={8} required />
-      <Button type="submit" loading={loading}>Sign up</Button>
+      <Input
+        id="password"
+        name="password"
+        type="password"
+        label="Password"
+        autocomplete="new-password"
+        hint={PASSWORD_HINT}
+        required
+      />
+      <Input
+        id="confirmPassword"
+        name="confirmPassword"
+        type="password"
+        label="Confirm password"
+        autocomplete="new-password"
+        required
+      />
+      <Button type="submit" loading={loading}>
+        Create account
+      </Button>
     </form>
   );
 }

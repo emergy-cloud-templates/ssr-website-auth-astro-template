@@ -1,33 +1,32 @@
-import type { APIRoute } from 'astro';
-import { supabase } from '../../lib/supabase';
+import type { APIRoute } from "astro";
 
-export const GET: APIRoute = async ({ url, cookies, redirect }) => {
-  const code = url.searchParams.get('code');
-  const next = url.searchParams.get('next') || '/account';
+import { AuthError } from "~/lib/auth";
+import { HOME_FOR_USERS, SIGN_IN } from "~/lib/routes";
+import { safeRedirectPath } from "~/lib/validation";
 
-  if (code) {
-    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+/**
+ * Landing page for emailed links (account confirmation, password reset).
+ * Supports both Supabase flows (PKCE `code`, or `token_hash` + `type`) and the
+ * local provider's links, then forwards to `next`.
+ */
+export const GET: APIRoute = async ({ url, locals, redirect }) => {
+  const params = url.searchParams;
+  const next = safeRedirectPath(params.get("next"), HOME_FOR_USERS);
 
-    if (!error && data.session) {
-      cookies.set('sb-access-token', data.session.access_token, {
-        path: '/',
-        secure: true,
-        httpOnly: true,
-        sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 7,
-      });
-
-      cookies.set('sb-refresh-token', data.session.refresh_token, {
-        path: '/',
-        secure: true,
-        httpOnly: true,
-        sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 7,
-      });
-
-      return redirect(next);
-    }
+  // Supabase reports expired or reused links with ?error=...&error_code=...
+  if (params.has("error") || params.has("error_code")) {
+    return redirect(`${SIGN_IN}?error=link_expired`, 303);
   }
 
-  return redirect('/auth/signin?error=auth_callback_error');
+  try {
+    await locals.auth.verifyCallback({
+      code: params.get("code") ?? undefined,
+      tokenHash: params.get("token_hash") ?? undefined,
+      type: params.get("type") ?? undefined,
+    });
+    return redirect(next, 303);
+  } catch (error) {
+    if (!(error instanceof AuthError)) console.error("[auth/callback]", error);
+    return redirect(`${SIGN_IN}?error=link_expired`, 303);
+  }
 };

@@ -1,0 +1,40 @@
+---
+import AuthLayout from "../../layouts/AuthLayout.astro";
+
+// Only the local auth provider has an outbox. With Supabase, emails are real
+// (or, with `supabase start`, visible in Mailpit at http://127.0.0.1:54324).
+const { auth } = Astro.locals;
+if (auth.provider !== "local" || !auth.readOutbox) {
+  return new Response("Not found", { status: 404 });
+}
+const emails = auth.readOutbox(25);
+---
+
+<AuthLayout title="Dev mailbox">
+  <Fragment slot="heading">Dev mailbox</Fragment>
+  <Fragment slot="subheading">Emails the local auth provider would have sent, newest first.</Fragment>
+
+  {emails.length === 0 ? (
+    <p class="text-sm text-gray-600">No emails yet. Sign up or request a password reset.</p>
+  ) : (
+    <ul class="divide-y divide-gray-200" data-testid="mailbox">
+      {emails.map((email) => (
+        <li class="py-4">
+          <p class="text-sm font-semibold text-gray-900">{email.subject}</p>
+          <p class="text-xs text-gray-600">
+            To {email.to} - {new Date(email.createdAt).toLocaleString("en")}
+          </p>
+          <p class="mt-2 text-sm text-gray-700">{email.body}</p>
+          {email.link && (
+            <a
+              href={email.link}
+              class="mt-2 inline-block text-sm font-medium break-all text-indigo-600 hover:text-indigo-500"
+            >
+              Open link
+            </a>
+          )}
+        </li>
+      ))}
+    </ul>
+  )}
+</AuthLayout>

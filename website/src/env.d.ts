@@ -1,19 +1,10 @@
 /// <reference types="astro/client" />
-import type { Prisma } from "@prisma/client";
 
-interface ImportMetaEnv {
-  readonly PUBLIC_SUPABASE_URL: string;
-  readonly PUBLIC_SUPABASE_ANON_KEY: string;
-}
-
-interface ImportMeta {
-  readonly env: ImportMetaEnv;
-}
-
-declare global {
-  namespace App {
-    interface Locals {
-      user: any;
-    }
+declare namespace App {
+  interface Locals {
+    /** Auth backend bound to the current request (Supabase or local). */
+    auth: import("./lib/auth/types").AuthService;
+    /** The signed-in user, or null. Set by src/middleware.ts. */
+    user: import("./lib/auth/types").AuthUser | null;
   }
 }

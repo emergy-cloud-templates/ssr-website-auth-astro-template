@@ -1,26 +1,30 @@
-import type { JSX } from 'preact';
+import type { InputHTMLAttributes } from "preact";
 
-interface InputProps extends JSX.HTMLAttributes<HTMLInputElement> {
+interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
+  id: string;
   label: string;
-  error?: string;
+  /** Helper text under the field, linked with aria-describedby. */
+  hint?: string;
 }
 
-export function Input({ label, error, id, ...props }: InputProps) {
+export function Input({ id, label, hint, class: className = "", ...props }: InputProps) {
+  const hintId = hint ? `${id}-hint` : undefined;
   return (
     <div>
-      <label htmlFor={id} class="block text-sm font-medium leading-6 text-gray-900">
+      <label for={id} class="block text-sm leading-6 font-medium text-gray-900">
         {label}
       </label>
-      <div class="mt-2">
-        <input
-          id={id}
-          {...props}
-          class={`block w-full rounded-md border-0 py-1.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset ${
-            error ? 'ring-red-300' : 'ring-gray-300'
-          } placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6`}
-        />
-      </div>
-      {error && <p class="mt-2 text-sm text-red-600">{error}</p>}
+      <input
+        id={id}
+        aria-describedby={hintId}
+        {...props}
+        class={`mt-2 block w-full rounded-md border-0 px-3 py-1.5 text-gray-900 shadow-sm ring-1 ring-gray-300 ring-inset placeholder:text-gray-400 focus:ring-2 focus:ring-indigo-600 focus:ring-inset disabled:bg-gray-50 disabled:text-gray-500 sm:text-sm sm:leading-6 ${className}`}
+      />
+      {hint && (
+        <p id={hintId} class="mt-2 text-xs text-gray-600">
+          {hint}
+        </p>
+      )}
     </div>
   );
 }

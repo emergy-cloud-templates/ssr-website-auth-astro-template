@@ -1,29 +1,22 @@
-import type { APIRoute } from 'astro';
-import { createServerClient } from '../../../lib/supabase';
+import type { APIRoute } from "astro";
 
-export const POST: APIRoute = async ({ request, cookies }) => {
-  const formData = await request.formData();
-  const name = formData.get('name')?.toString();
+import { errorResponse, field, json, jsonError, readForm } from "~/lib/http";
+import { sanitizeName, validateName } from "~/lib/validation";
 
-  if (!name) {
-    return new Response(
-      JSON.stringify({ error: 'Name is required' }),
-      { status: 400 }
-    );
+export const POST: APIRoute = async ({ request, locals }) => {
+  if (!locals.user) return jsonError("Your session has expired. Please sign in again.", 401);
+
+  const form = await readForm(request);
+  if (!form) return jsonError("Invalid request.", 400);
+
+  const name = sanitizeName(field(form, "name"));
+  const nameError = validateName(name);
+  if (nameError) return jsonError(nameError, 400);
+
+  try {
+    const user = await locals.auth.updateProfile({ name });
+    return json({ ok: true, user: { name: user.name } });
+  } catch (error) {
+    return errorResponse(error);
   }
-
-  const supabase = createServerClient(cookies);
-  const { error } = await supabase.auth.updateUser({ data: { name } });
-
-  if (error) {
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 400 }
-    );
-  }
-
-  return new Response(
-    JSON.stringify({ success: true }),
-    { status: 200 }
-  );
 };

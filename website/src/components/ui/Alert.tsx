@@ -1,20 +1,21 @@
-import { h } from 'preact';
+import type { ComponentChildren } from "preact";
 
 interface AlertProps {
-  type: 'success' | 'error' | 'info';
-  message: string;
+  type: "success" | "error" | "info";
+  children: ComponentChildren;
 }
 
-export function Alert({ type, message }: AlertProps) {
-  const styles = {
-    success: 'bg-green-50 text-green-800 border-green-200',
-    error: 'bg-red-50 text-red-800 border-red-200',
-    info: 'bg-blue-50 text-blue-800 border-blue-200',
-  };
+const STYLES: Record<AlertProps["type"], string> = {
+  success: "border-green-200 bg-green-50 text-green-800",
+  error: "border-red-200 bg-red-50 text-red-800",
+  info: "border-blue-200 bg-blue-50 text-blue-900",
+};
 
+export function Alert({ type, children }: AlertProps) {
+  // Errors interrupt screen readers; confirmations are announced politely.
   return (
-    <div class={`rounded-md border p-4 mb-4 ${styles[type]}`}>
-      <p class="text-sm">{message}</p>
+    <div role={type === "error" ? "alert" : "status"} class={`rounded-md border p-4 text-sm ${STYLES[type]}`}>
+      {children}
     </div>
   );
 }

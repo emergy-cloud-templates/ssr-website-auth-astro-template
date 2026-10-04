@@ -1,62 +1,23 @@
 import type { APIRoute } from "astro";
-import { createServerClient } from "../../../lib/supabase";
-import "dotenv/config";
 
-// Simple email validation
-function isValidEmail(email: string): boolean {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
-}
+import { errorResponse, field, json, jsonError, readForm } from "~/lib/http";
+import { HOME_FOR_USERS } from "~/lib/routes";
+import { normalizeEmail, safeRedirectPath, validateEmail } from "~/lib/validation";
 
-export const POST: APIRoute = async ({ request, cookies }) => {
+export const POST: APIRoute = async ({ request, locals }) => {
+  const form = await readForm(request);
+  if (!form) return jsonError("Invalid request.", 400);
+
+  const email = normalizeEmail(field(form, "email"));
+  const password = field(form, "password");
+  if (!email || !password) return jsonError("Email and password are required.", 400);
+  const emailError = validateEmail(email);
+  if (emailError) return jsonError(emailError, 400);
+
   try {
-    const formData = await request.formData();
-    const email = formData.get("email")?.toString()?.trim().toLowerCase();
-    const password = formData.get("password")?.toString();
-
-    // Validation
-    if (!email || !password) {
-      return new Response(
-        JSON.stringify({ error: "Email and password are required" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
-      );
-    }
-
-    if (!isValidEmail(email)) {
-      return new Response(
-        JSON.stringify({ error: "Please enter a valid email address" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
-      );
-    }
-
-    const supabase = createServerClient(cookies);
-
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (error) {
-      // Don't expose specific error messages to prevent user enumeration
-      console.error("Sign in error:", error.message);
-      return new Response(
-        JSON.stringify({ error: "Invalid email or password" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
-      );
-    }
-
-    // The SSR client should have set cookies via setAll, but let's verify
-    console.log("Sign in successful for:", data.user?.email);
-
-    return new Response(
-      JSON.stringify({ success: true, user: { email: data.user?.email } }),
-      { status: 200, headers: { "Content-Type": "application/json" } }
-    );
-  } catch (err) {
-    console.error("Unexpected sign in error:", err);
-    return new Response(
-      JSON.stringify({ error: "An unexpected error occurred" }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
-    );
+    await locals.auth.signIn(email, password);
+    return json({ ok: true, redirectTo: safeRedirectPath(field(form, "redirectTo"), HOME_FOR_USERS) });
+  } catch (error) {
+    return errorResponse(error);
   }
 };

@@ -31,11 +31,12 @@ Please include:
 
 In scope:
 
-- Supabase SSR session handling.
+- Supabase SSR session handling and the local development auth provider.
 - Auth redirects and protected routes.
 - Account API handlers.
 - Cookie behavior.
 - CloudFront cache behavior for authenticated requests.
+- The Lambda adapter (host handling, origin verification, body handling).
 - Security headers.
 - GitHub Actions deployment workflows.
 - Terraform infrastructure defaults.

@@ -1,12 +1,13 @@
+# emergy.cloud workflow contract: astro v7
 # -----------------------------------------------------------------------------
 # emergy.cloud CI/CD reference - Deploy (Astro)
 #
 # Promotes an already-built artifact (uploaded by build.yml under
 # builds/<sha>/ in the artifact bucket) to one environment: syncs the static
 # assets to that environment's website bucket, updates the SSR Lambda when the
-# artifact ships a server bundle, and invalidates the CloudFront cache. The
-# same file works for every Astro template - SSR is detected from the
-# artifact, not hardcoded.
+# artifact ships a server bundle, updates an optional control-plane worker,
+# and invalidates the CloudFront cache. The same file works for every Astro
+# template - artifacts are detected, not hardcoded.
 #
 # Repository variables maintained by the emergy platform:
 #   PROJECT_ID, AWS_REGION, AWS_ACCOUNT_ID, AWS_INFRA_ROLE_TO_ASSUME, ENVS
@@ -83,10 +84,29 @@ jobs:
           fi
 
       - name: Configure AWS credentials (OIDC)
+        id: aws_credentials
         uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ env.ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
+
+      # AWS answers every refused OIDC assume with the same opaque string,
+      # whatever the cause - wrong role, missing provider, unmatched trust. The
+      # token is the only thing that can say which, so print its claims (never
+      # the token) when the assume fails. Compare `sub` against the deploy
+      # role's trust condition; they must match exactly.
+      - name: Explain OIDC failure
+        if: failure() && steps.aws_credentials.conclusion == 'failure'
+        working-directory: .
+        run: |
+          echo "::error::${ROLE_TO_ASSUME} did not trust this workflow's OIDC token"
+          T=$(curl -sH "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -r .value)
+          P=$(echo "$T" | cut -d. -f2 | tr '_-' '/+')
+          # A JWT payload is unpadded base64url - base64 needs the "=" back,
+          # or it decodes the claims and still exits "base64: invalid input".
+          case $(( ${#P} % 4 )) in 2) P="$P==" ;; 3) P="$P=" ;; esac
+          printf '%s' "$P" | base64 -d | jq '{sub,aud,repository}'
 
       - name: Verify artifact exists
         run: |
@@ -126,9 +146,18 @@ jobs:
                --key "builds/${COMMIT_SHA}/server.zip" >/dev/null 2>&1; then
             SSR=true
           fi
-          echo "Detected: assets under '${PREFIX:-.}', ssr=${SSR}"
-          { echo "prefix=$PREFIX"; echo "ssr=$SSR"; } >> "$GITHUB_OUTPUT"
+          WORKER=false
+          if aws s3api head-object \
+               --bucket "${ARTIFACT_BUCKET}" \
+               --key "builds/${COMMIT_SHA}/worker.zip" >/dev/null 2>&1; then
+            WORKER=true
+          fi
+          echo "Detected: assets under '${PREFIX:-.}', ssr=${SSR}, worker=${WORKER}"
+          { echo "prefix=$PREFIX"; echo "ssr=$SSR"; echo "worker=$WORKER"; } >> "$GITHUB_OUTPUT"
 
+      # New assets are added first and old ones pruned only at the end: HTML
+      # still served by the previous Lambda keeps finding its /_astro/* files
+      # while the new version rolls out.
       - name: Sync artifact to the environment website bucket
         run: |
           set -euo pipefail
@@ -136,15 +165,11 @@ jobs:
           # Platform convention: one website bucket per environment.
           TARGET="s3://${PROJECT_ID}-${ENV}-website"
           echo "Copying ${SRC} -> ${TARGET}"
-          aws s3 sync "${SRC}" "${TARGET}/" --only-show-errors --delete
+          aws s3 sync "${SRC}" "${TARGET}/" --only-show-errors --exclude "*_robots.txt"
 
           # Optional robots swapping: upload <environment>_robots.txt variants
           # from your build and the matching one becomes robots.txt here.
           aws s3 cp "${SRC}${ENV}_robots.txt" "${TARGET}/robots.txt" --only-show-errors || true
-          IFS=',' read -ra ENV_LIST <<< "${ENVS}"
-          for E in "${ENV_LIST[@]}"; do
-            aws s3 rm "${TARGET}/${E}_robots.txt" --only-show-errors || true
-          done
 
       - name: Update SSR Lambda
         if: steps.layout.outputs.ssr == 'true'
@@ -154,7 +179,37 @@ jobs:
             --function-name "${PROJECT_ID}_${ENV}_website_ssr" \
             --s3-bucket "${ARTIFACT_BUCKET}" \
             --s3-key "builds/${COMMIT_SHA}/server.zip" \
-            --publish
+            --publish >/dev/null
+          aws lambda wait function-updated-v2 --function-name "${PROJECT_ID}_${ENV}_website_ssr"
+
+      - name: Update control-plane worker Lambda
+        if: steps.layout.outputs.worker == 'true'
+        run: |
+          set -euo pipefail
+          FUNCTION_NAME="${PROJECT_ID}-worker"
+          UPDATED=false
+          for ATTEMPT in 1 2 3 4 5 6; do
+            if UPDATE_OUTPUT=$(aws lambda update-function-code \
+              --function-name "${FUNCTION_NAME}" \
+              --s3-bucket "${ARTIFACT_BUCKET}" \
+              --s3-key "builds/${COMMIT_SHA}/worker.zip" \
+              --publish 2>&1); then
+              echo "${UPDATE_OUTPUT}"
+              UPDATED=true
+              break
+            fi
+            if [[ "${UPDATE_OUTPUT}" != *"ResourceConflictException"* ]]; then
+              echo "${UPDATE_OUTPUT}" >&2
+              exit 1
+            fi
+            echo "::warning::Worker Lambda update busy; waiting before retry ${ATTEMPT}/6"
+            aws lambda wait function-updated-v2 --function-name "${FUNCTION_NAME}"
+          done
+          if [ "${UPDATED}" != "true" ]; then
+            echo "::error::Worker Lambda remained busy after 6 attempts"
+            exit 1
+          fi
+          aws lambda wait function-updated-v2 --function-name "${FUNCTION_NAME}"
 
       - name: Invalidate CloudFront cache (distribution tagged env + projectId)
         run: |
@@ -181,3 +236,11 @@ jobs:
           aws cloudfront create-invalidation \
             --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
             --paths "/*"
+
+      - name: Prune assets of previous builds
+        run: |
+          set -euo pipefail
+          SRC="s3://${ARTIFACT_BUCKET}/builds/${COMMIT_SHA}/${{ steps.layout.outputs.prefix }}"
+          TARGET="s3://${PROJECT_ID}-${ENV}-website"
+          aws s3 sync "${SRC}" "${TARGET}/" --only-show-errors --delete \
+            --exclude "*_robots.txt" --exclude "robots.txt"

@@ -1,16 +1,25 @@
 ---
-import AuthLayout from '../../layouts/AuthLayout.astro';
-import { SignInForm } from '../../components/auth/SignInForm';
+import { SignInForm } from "../../components/auth/SignInForm";
+import AuthLayout from "../../layouts/AuthLayout.astro";
+import { safeRedirectPath } from "../../lib/validation";
+
+// Only known codes map to text: the query string is never echoed into the page.
+const NOTICES: Record<string, string> = {
+  link_expired: "That link is invalid or has expired. Please request a new one.",
+};
+
+const redirectTo = safeRedirectPath(Astro.url.searchParams.get("redirectTo"), "");
+const notice = NOTICES[Astro.url.searchParams.get("error") ?? ""];
 ---
 
-<AuthLayout title="Sign In">
+<AuthLayout title="Sign in">
   <Fragment slot="heading">Sign in to your account</Fragment>
   <Fragment slot="subheading">
-    Or{' '}
+    Or{" "}
     <a href="/auth/signup" class="font-medium text-indigo-600 hover:text-indigo-500">
       create a new account
     </a>
   </Fragment>
 
-  <SignInForm client:load />
+  <SignInForm client:load redirectTo={redirectTo || undefined} notice={notice} />
 </AuthLayout>

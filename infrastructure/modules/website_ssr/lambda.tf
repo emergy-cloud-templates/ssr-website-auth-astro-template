@@ -1,38 +1,55 @@
-# Create Lambda function to perform CRUD operations on DynamoDB table    
+resource "aws_cloudwatch_log_group" "website_ssr" {
+  name              = "/${var.project_id}/${var.environment}/website-ssr"
+  retention_in_days = var.log_retention_days
+  tags              = local.tags
+}
+
 resource "aws_lambda_function" "website_ssr" {
-  function_name = "${var.env_config.project_id}_${var.env_config.environment}_website_ssr"
+  function_name = "${var.project_id}_${var.environment}_website_ssr"
   handler       = "lambda.handler"
   role          = var.lambda_role_arn
-  runtime       = "nodejs22.x"
+  runtime       = "nodejs24.x"
+  architectures = ["x86_64"]
+  memory_size   = var.lambda_memory_size
+  # Just under API Gateway's 29 s integration limit.
+  timeout = 28
 
+  # Initial code only. Releases are pushed by the Deploy workflow with
+  # `aws lambda update-function-code`, so Terraform must not roll them back.
   filename = var.lambda_zip_path
   layers   = [var.lambda_layer_arn]
 
-  # # VPC configuration
-  timeout     = 30
-  memory_size = 256
-
   environment {
     variables = {
-      # No secret values here: the Lambda loads the "<env>/<project_id>" JSON
-      # secret into process.env at cold start (ssr/lambda.js -> loadSecrets).
-      APP_SECRETS_ID = local.app_secrets_id
-      ENV            = var.env_config.environment
+      # No secret values here: lambda.js loads the "<env>/<project_id>" JSON
+      # secret into process.env at cold start (ssr/loadSecrets.ts).
+      APP_SECRETS_ID       = "${var.environment}/${var.project_id}"
+      ENV                  = var.environment
+      ORIGIN_VERIFY_SECRET = random_password.origin_verify.result
+      NODE_OPTIONS         = "--enable-source-maps"
     }
   }
 
-  tags = {
-    Name      = "${var.env_config.project_id} ${var.env_config.environment} website ssr"
-    env       = var.env_config.environment
-    projectId = var.env_config.project_id
+  logging_config {
+    log_format = "Text"
+    log_group  = aws_cloudwatch_log_group.website_ssr.name
   }
+
+  tags = merge(local.tags, { Name = "${var.project_id} ${var.environment} website ssr" })
+
+  lifecycle {
+    ignore_changes = [filename, source_code_hash]
+  }
+
+  # CloudFront must send the origin secret everywhere before the function
+  # starts requiring it (matters when the secret is added or rotated).
+  depends_on = [aws_cloudfront_distribution.cdn]
 }
 
-
 resource "aws_lambda_permission" "api_gateway" {
-  statement_id  = "${var.env_config.project_id}_${var.env_config.environment}_AllowAPIGatewayInvoke"
+  statement_id  = "${var.project_id}_${var.environment}_AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.website_ssr.arn
+  function_name = aws_lambda_function.website_ssr.function_name
   principal     = "apigateway.amazonaws.com"
-  source_arn    = "arn:aws:execute-api:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:${aws_api_gateway_rest_api.website_ssr.id}/*/*/*"
+  source_arn    = "${aws_api_gateway_rest_api.website_ssr.execution_arn}/*/*/*"
 }

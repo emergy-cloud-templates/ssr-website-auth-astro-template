@@ -1,22 +1,24 @@
 ---
-import Layout from './Layout.astro';
+import { siteConfig } from "../config/site";
+import Layout from "./Layout.astro";
 
 interface Props {
   title: string;
 }
 
 const { title } = Astro.props;
+const localMode = Astro.locals.auth.provider === "local";
 ---
 
 <Layout title={title}>
-  <div class="flex min-h-screen flex-col justify-center py-12 sm:px-6 lg:px-8">
+  <main id="main" class="flex min-h-screen flex-col justify-center py-12 sm:px-6 lg:px-8">
     <div class="sm:mx-auto sm:w-full sm:max-w-md">
-      <a href="/" class="flex justify-center">
-        <span class="text-3xl font-bold text-indigo-600">Template</span>
+      <a href="/" class="flex justify-center text-3xl font-bold text-indigo-600">
+        {siteConfig.name}
       </a>
-      <h2 class="mt-6 text-center text-2xl font-bold leading-9 tracking-tight text-gray-900">
+      <h1 class="mt-6 text-center text-2xl leading-9 font-bold tracking-tight text-gray-900">
         <slot name="heading" />
-      </h2>
+      </h1>
       <p class="mt-2 text-center text-sm text-gray-600">
         <slot name="subheading" />
       </p>
@@ -26,6 +28,15 @@ const { title } = Astro.props;
       <div class="bg-white px-6 py-8 shadow sm:rounded-lg sm:px-12">
         <slot />
       </div>
+      {localMode && (
+        <p class="mt-4 px-6 text-center text-xs text-gray-600 sm:px-0">
+          Local auth mode: accounts live in a SQLite file and emails are listed in the{" "}
+          <a href="/dev/mailbox" class="font-medium text-indigo-600 hover:text-indigo-500">
+            dev mailbox
+          </a>
+          .
+        </p>
+      )}
     </div>
-  </div>
+  </main>
 </Layout>
