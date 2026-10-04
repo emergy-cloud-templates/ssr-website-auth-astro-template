@@ -23,13 +23,8 @@ terraform {
 
 provider "aws" {
   region = var.aws_region
-
-  default_tags {
-    tags = {
-      projectId = var.project_id
-      managedBy = "terraform"
-    }
-  }
+  # No default_tags: tagging resource types that were untagged before (IAM
+  # roles, API Gateway, ...) needs extra actions the deploy role may not have.
 }
 
 data "aws_region" "current" {}
