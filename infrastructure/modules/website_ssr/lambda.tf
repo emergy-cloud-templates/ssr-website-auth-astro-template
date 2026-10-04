@@ -1,7 +1,6 @@
 resource "aws_cloudwatch_log_group" "website_ssr" {
   name              = "/${var.project_id}/${var.environment}/website-ssr"
   retention_in_days = var.log_retention_days
-  tags              = local.tags
 }
 
 resource "aws_lambda_function" "website_ssr" {
