@@ -7,3 +7,7 @@ minimumReleaseAge: 1440
 # Dependencies allowed to run install scripts (esbuild ships a native binary).
 allowBuilds:
   esbuild: true
+
+# Any other dependency's install script is skipped (never run) with a warning
+# instead of failing the install.
+strictDepBuilds: false
