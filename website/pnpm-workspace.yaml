@@ -4,6 +4,6 @@ packages:
 # Supply-chain guard: only install versions published at least 24h ago.
 minimumReleaseAge: 1440
 
-# esbuild ships a native binary through a postinstall script.
-onlyBuiltDependencies:
-  - esbuild
+# Dependencies allowed to run install scripts (esbuild ships a native binary).
+allowBuilds:
+  esbuild: true
