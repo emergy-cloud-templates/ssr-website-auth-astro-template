@@ -151,8 +151,9 @@ three things to check first:
    CloudFront's secret header. Terraform waits for the CloudFront deployment
    before updating the function, so there is no gap; just expect the apply to
    take a few minutes longer.
-3. **Secret key names.** `PUBLIC_SUPABASE_ANON_KEY` keeps working; you can
-   rename it to `PUBLIC_SUPABASE_PUBLISHABLE_KEY` at your own pace. Add
+3. **Secret key names.** `PUBLIC_SUPABASE_ANON_KEY` is the name the emergy
+   platform provisions and the deploy check requires (it holds the publishable
+   key); `PUBLIC_SUPABASE_PUBLISHABLE_KEY` keeps working as an alias. Add
    `SUPABASE_SECRET_KEY` to enable account deletion.
 
 Run `scripts/deploy.sh infra plan` (or read the plan in the Update

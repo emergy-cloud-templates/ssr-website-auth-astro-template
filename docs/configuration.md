@@ -20,7 +20,7 @@ runs in every environment.
 | --- | --- | --- |
 | `AUTH_PROVIDER` | auto | `supabase` or `local`. Auto: `supabase` when the two Supabase values below are set, else `local`. |
 | `PUBLIC_SUPABASE_URL` | - | Project URL, e.g. `https://abcd.supabase.co` or `http://127.0.0.1:54321`. |
-| `PUBLIC_SUPABASE_PUBLISHABLE_KEY` | - | Publishable key (`sb_publishable_...`). `PUBLIC_SUPABASE_ANON_KEY` (legacy anon key) is accepted too. |
+| `PUBLIC_SUPABASE_ANON_KEY` | - | The project's publishable key (`sb_publishable_...`) or legacy anon key. This is the name the emergy platform provisions and `infrastructure/required-secret-keys.txt` checks. `PUBLIC_SUPABASE_PUBLISHABLE_KEY` is accepted as an alias. |
 | `SUPABASE_SECRET_KEY` | - | **Server only.** Secret key (`sb_secret_...`) or legacy `SUPABASE_SERVICE_ROLE_KEY`. Only used to delete accounts; without it "Delete account" answers "not configured". |
 | `SITE_URL` | request origin | Public origin used in emailed links (e.g. `https://www.example.com`). Set it when several hostnames serve the site. |
 | `LOCAL_AUTH_DB_PATH` | `.data/local-auth.sqlite` | Local provider database file. |
@@ -43,7 +43,7 @@ key into `process.env` (`ssr/loadSecrets.ts`):
 ```json
 {
   "PUBLIC_SUPABASE_URL": "https://abcd.supabase.co",
-  "PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_...",
+  "PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_...",
   "SUPABASE_SECRET_KEY": "sb_secret_...",
   "SITE_URL": "https://www.example.com"
 }

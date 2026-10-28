@@ -52,7 +52,7 @@ It prints the API URL and keys. Put them in `website/.env`:
 
 ```sh
 PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
-PUBLIC_SUPABASE_PUBLISHABLE_KEY=<publishable key printed by supabase start>
+PUBLIC_SUPABASE_ANON_KEY=<publishable key printed by supabase start>
 SUPABASE_SECRET_KEY=<secret key printed by supabase start>
 ```
 
@@ -62,7 +62,7 @@ Studio is at http://127.0.0.1:54323. Stop with `pnpm dlx supabase stop`.
 ### Hosted Supabase
 
 Copy `.env.example` to `.env` and set `PUBLIC_SUPABASE_URL` and
-`PUBLIC_SUPABASE_PUBLISHABLE_KEY` from your project (see
+`PUBLIC_SUPABASE_ANON_KEY` from your project (see
 [Getting started](getting-started.md#2-connect-supabase)). Add
 `http://localhost:4321/**` to the project's Redirect URLs, or emailed links
 will be rejected.
