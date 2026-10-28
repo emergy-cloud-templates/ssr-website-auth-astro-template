@@ -1,0 +1,22 @@
+{
+  "$schema": "https://git.emergy.cloud/emergy-cloud/dvk-common/raw/branch/main/schemas/legos-manifest.schema.json",
+  "legos": [
+    {
+      "name": "astro-ssr-lambda",
+      "layer": "backend",
+      "version": "2.0.0",
+      "source": "e1830c4",
+      "paths": [
+        "website/ssr/lambda.js",
+        "website/ssr/shim.js",
+        "website/ssr/loadSecrets.ts",
+        "website/ssr/package.json",
+        "website/ssr/local-server.mjs",
+        "website/ssr/smoke-test.mjs",
+        "website/scripts/prepare-aws.mjs"
+      ],
+      "updated": "2026-10-28",
+      "notes": "This copy is the lego's origin; the smoke test keeps the template's auth checks."
+    }
+  ]
+}

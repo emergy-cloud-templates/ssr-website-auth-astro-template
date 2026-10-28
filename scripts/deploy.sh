@@ -14,7 +14,9 @@
 # see deploy.env.example). AWS credentials come from your usual AWS CLI setup
 # (profile, SSO, or exported keys).
 # -----------------------------------------------------------------------------
-# Adapted from /common/api/astro-aws-deploy-cli (origin: app.upmatch.io).
+# Written for this template's Terraform layout (one root, every enabled env). The
+# library's astro-aws-deploy-cli lego targets the module-per-env layout instead;
+# this script is its own lineage (HQ overnight report 2026-10-28, item 9).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
