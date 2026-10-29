@@ -3,6 +3,7 @@
   "legos": [
     {
       "name": "astro-ssr-lambda",
+      "tech": "node",
       "layer": "backend",
       "version": "2.0.0",
       "source": "e1830c4",

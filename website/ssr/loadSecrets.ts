@@ -1,7 +1,7 @@
 // Loads this environment's runtime configuration from AWS Secrets Manager.
 // Bundled to loadSecrets.cjs by `pnpm prepare:aws` and called by lambda.js
 // before the Astro app is imported.
-// Adapted from /common/legos/backend/astro-ssr-lambda@2.0.0 (dvk-common e1830c4). This
+// Adapted from /common/legos/node/astro-ssr-lambda@2.0.0 (dvk-common e1830c4). This
 // repo's copy is the lego's origin: change the lego, then pull it here with update-lego.
 import { GetSecretValueCommand, SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
 

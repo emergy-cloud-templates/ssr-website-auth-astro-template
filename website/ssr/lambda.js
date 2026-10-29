@@ -1,5 +1,5 @@
 // AWS Lambda entry point for the Astro SSR build (handler: "lambda.handler").
-// Adapted from /common/legos/backend/astro-ssr-lambda@2.0.0 (dvk-common e1830c4). This
+// Adapted from /common/legos/node/astro-ssr-lambda@2.0.0 (dvk-common e1830c4). This
 // repo's copy is the lego's origin: change the lego, then pull it here with update-lego.
 // `pnpm prepare:aws` copies this file, shim.js and the Astro server build into
 // ssr_dist/, which is zipped and deployed. See docs/architecture.md.

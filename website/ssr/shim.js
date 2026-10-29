@@ -1,6 +1,6 @@
 // API Gateway (REST, Lambda proxy integration) <-> Node request/response shim
 // for Astro's @astrojs/node adapter in "middleware" mode.
-// Adapted from /common/legos/backend/astro-ssr-lambda@2.0.0 (dvk-common e1830c4). This
+// Adapted from /common/legos/node/astro-ssr-lambda@2.0.0 (dvk-common e1830c4). This
 // repo's copy is the lego's origin: change the lego, then pull it here with update-lego.
 // Pure functions, unit-tested in tests/unit/shim.test.ts.
 import { timingSafeEqual } from "node:crypto";
