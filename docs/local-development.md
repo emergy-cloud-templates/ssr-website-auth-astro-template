@@ -10,7 +10,7 @@ pnpm dev          # http://localhost:4321
 
 ## Choose an auth backend
 
-The app talks to auth through one interface (`src/lib/auth/types.ts`), so you
+The app talks to auth through one interface (`src/lib/supabase-auth/types.ts`), so you
 can switch backends with environment variables only.
 
 | Mode | Setup | Emails | Use it for |
@@ -19,7 +19,7 @@ can switch backends with environment variables only.
 | **Supabase CLI** (local stack) | Docker + `pnpm dlx supabase start` | Mailpit, http://127.0.0.1:54324 | Testing real Supabase behavior locally |
 | **Hosted Supabase** | A Supabase project | Real inbox | Integration with a shared dev project |
 
-The rule (`src/lib/config.ts`): `AUTH_PROVIDER` when set; otherwise Supabase
+The rule (`resolveAuthConfig`, `src/lib/supabase-auth/config.ts`): `AUTH_PROVIDER` when set; otherwise Supabase
 when `PUBLIC_SUPABASE_URL` and a publishable key are set; otherwise local.
 
 ### Local SQLite (no account)

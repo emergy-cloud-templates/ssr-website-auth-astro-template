@@ -26,45 +26,43 @@ Also update `name` / `description` / `repository` in `website/package.json`.
    </DashboardLayout>
    ```
 
-2. Protect the path in `website/src/lib/routes.ts`:
+2. Protect the path in `website/src/lib/auth.ts`:
 
    ```ts
    export const PROTECTED_ROUTES = ["/dashboard", "/account", "/projects"];
    ```
 
-3. Add it to the sidebar (`NAV_ITEMS` in
-   `website/src/components/dashboard/Sidebar.tsx`).
-4. Add a case to `tests/unit/routes.test.ts`.
+3. Add it to the sidebar (`NAV` in `website/src/layouts/DashboardLayout.astro`;
+   icons by name, see `src/components/app-shell/icons.tsx`).
+4. Add a Playwright step that opens it (`tests/e2e/`).
 
 ## Add an API route
 
-Follow the existing routes in `website/src/pages/api/`:
+Wrap it in `defineRoute` (`website/src/lib/route.ts`, the api-route lego): it
+checks the auth level, answers `{ "error": ... }` for you and logs unexpected
+errors (a generic 500 with a `trace_id`; internals never reach the browser).
 
 ```ts
 // website/src/pages/api/projects/create.ts
-import type { APIRoute } from "astro";
+import { badRequest, field, json, readForm } from "~/lib/api-route";
+import { defineRoute } from "~/lib/route";
 
-import { errorResponse, field, json, jsonError, readForm } from "~/lib/http";
+export const POST = defineRoute({ name: "/api/projects/create", auth: "user" }, async (ctx) => {
+  const form = await readForm(ctx.request);
+  const name = form ? field(form, "name").trim() : "";
+  if (!name) throw badRequest("Name is required.");
 
-export const POST: APIRoute = async ({ request, locals }) => {
-  if (!locals.user) return jsonError("Your session has expired. Please sign in again.", 401);
-
-  const form = await readForm(request);
-  if (!form) return jsonError("Invalid request.", 400);
-  const name = field(form, "name").trim();
-  if (!name) return jsonError("Name is required.", 400);
-
-  try {
-    // ... your logic
-    return json({ ok: true });
-  } catch (error) {
-    return errorResponse(error); // logs, returns a generic 500
-  }
-};
+  // ... your logic: ctx.user is the signed-in user (never null on a "user" route)
+  return json({ ok: true });
+});
 ```
 
-- Validate on the server even if the form validates too.
-- Return JSON; the `useFormAction` hook (`src/lib/client/useFormAction.ts`)
+- `auth`: `"user"` (signed in), `"admin"`, `"public"`, or `"apiKey"` (a shared
+  secret, for webhooks).
+- Validate on the server even if the form validates too (`parseWith(schema,
+  await readBody(ctx.request))` takes a zod schema; `text`, `integer`, `email`
+  for simple fields).
+- Return JSON; the `useFormAction` hook (`src/components/auth-forms/api.ts`)
   shows `error` messages and calls `onSuccess` with the body.
 - Form posts are protected from cross-site requests by Astro's origin check.
   If you add a JSON API for other origins, handle CORS and authentication
@@ -102,13 +100,14 @@ const { data, error } = await supabase!.from("projects").select("id, name").orde
 the local auth provider there is no database for your own tables: either
 develop data features against the Supabase CLI stack
 ([Local development](local-development.md#supabase-cli-local-stack-in-docker)),
-or add your own storage behind an interface the way `src/lib/auth` does.
+or add your own storage behind an interface the way `src/lib/supabase-auth` does.
 
 ## Clean up on account deletion
 
-`website/src/pages/api/account/delete.ts` marks the spot: delete or anonymize
-data that is not covered by a database cascade (files in storage, records in
-third-party services) before calling `locals.auth.deleteAccount()`.
+`onDeleteAccount` in `website/src/lib/auth.ts` marks the spot: delete or
+anonymize data that is not covered by a database cascade (files in storage,
+records in third-party services) there; it runs before the auth account is
+deleted.
 
 ## Emails that work across devices
 
@@ -128,17 +127,18 @@ callback verifies the token and continues to the right page. Do the same in
 
 ## Change the password policy
 
-`website/src/lib/validation.ts` (`validatePassword`, `PASSWORD_HINT`) is used
-by the forms and the API. Keep Supabase's own setting (Authentication >
+`website/src/components/auth-forms/validation.ts` (`validatePassword`,
+`PASSWORD_HINT`) is used by the forms and the API (`src/lib/auth.ts` passes it
+to the auth routes). Keep Supabase's own setting (Authentication >
 Providers > Email > password requirements, and `website/supabase/config.toml`)
-at least as strict, and update `tests/unit/validation.test.ts`.
+at least as strict.
 
 ## Add another auth backend
 
-Implement `AuthService` (`website/src/lib/auth/types.ts`) in
-`src/lib/auth/<name>.ts`, return it from `createAuth` in
-`src/lib/auth/index.ts` based on `AUTH_PROVIDER`, and copy the provider tests.
-Pages, API routes and the middleware do not change.
+Implement `AuthService` (`website/src/lib/supabase-auth/types.ts`; the local
+provider in `src/lib/supabase-auth/local/provider.ts` is a complete example) and
+return it from your own `createAuth`. Pages, API routes and the middleware do
+not change.
 
 ## Cache public pages at the edge
 

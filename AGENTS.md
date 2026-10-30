@@ -7,10 +7,19 @@ Lambda) with Terraform and GitHub Actions. Docs: `README.md`, `docs/`.
 ## Layout
 
 - `website/`: the Astro app (pnpm project). Run commands from here.
-  - `src/middleware.ts`: resolves the user, applies `src/lib/routes.ts`.
-  - `src/lib/auth/`: `AuthService` interface + `supabase.ts` + `local/`.
-  - `src/pages/api/**`: POST endpoints returning JSON via `src/lib/http.ts`.
-  - `src/components/`: Preact islands; forms use `useFormAction`.
+  - Shared building blocks are copied from the dvk-common library ("legos"),
+    listed in `/.legos.json` with their version: `src/components/ui/`
+    (primitives and `theme.css`, the one place the design lives),
+    `src/components/auth-forms/`, `src/components/app-shell/`,
+    `src/lib/api-route/`, `src/lib/supabase-auth/`. Each file starts with an
+    `Adapted from /common/legos/...` stamp; their READMEs are in the library.
+  - `src/lib/auth.ts`: wires the auth lego (providers, `PROTECTED_ROUTES`,
+    the route handlers); `src/middleware.ts` runs `auth.middleware`.
+  - `src/lib/route.ts`: `defineRoute` for new API routes (auth level, JSON
+    errors, logging).
+  - `src/pages/api/**`: POST endpoints returning JSON (the auth ones are one
+    line each, see `src/lib/auth.ts`).
+  - `src/components/`: Preact islands; forms use `useFormAction` (auth-forms).
   - `ssr/`: AWS Lambda adapter (`lambda.js`, `shim.js`) and local server.
   - `tests/unit` (Vitest), `tests/e2e` (Playwright).
 - `infrastructure/`: Terraform; one `website_ssr` module per environment.
@@ -31,13 +40,17 @@ Lambda) with Terraform and GitHub Actions. Docs: `README.md`, `docs/`.
 
 - TypeScript strict, ESLint + Prettier (120 columns). Match the surrounding code.
 - Server code reads configuration with `getSecret()` from `astro:env/server`
-  (via `src/lib/config.ts`), never `import.meta.env` for runtime values: one
-  build is promoted to every environment.
+  (the auth configuration through `src/lib/auth.ts`), never `import.meta.env`
+  for runtime values: one build is promoted to every environment.
 - Auth goes through `locals.auth` (`AuthService`). Never import a provider in
   pages or routes. User-facing failures are `AuthError` codes.
-- Validate every input on the server (`src/lib/validation.ts`); redirect
-  targets go through `safeRedirectPath`.
-- New protected pages: add the prefix to `PROTECTED_ROUTES`.
+- Validate every input on the server (`src/components/auth-forms/validation.ts`
+  for the auth rules, shared with the forms); redirect targets go through
+  `safeRedirectPath`.
+- Colours: only the theme tokens of `src/components/ui/theme.css`
+  (`bg-primary`, `text-content`, `border-line`...), never a palette shade, so
+  one file restyles the whole app.
+- New protected pages: add the prefix to `PROTECTED_ROUTES` (`src/lib/auth.ts`).
 - New behavior needs tests: unit tests for logic and routes, a Playwright test
   for user flows (with `expectAccessible`).
 - Typography: plain hyphen `-`, never em or en dashes.

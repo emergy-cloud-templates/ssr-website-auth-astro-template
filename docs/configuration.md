@@ -13,7 +13,8 @@ or in Terraform state.
 
 ## App runtime variables
 
-Read at request time through `astro:env` (`src/lib/config.ts`), so one build
+Read at request time through `astro:env` (`src/lib/auth.ts` hands `getSecret`
+to the auth lego's `resolveAuthConfig`), so one build
 runs in every environment.
 
 | Variable | Default | Description |
@@ -65,7 +66,7 @@ Variables set by Terraform on the function (`APP_SECRETS_ID`, `ENV`,
 ### Adding a variable
 
 1. Read it in server code with `getSecret("MY_VAR")` from `astro:env/server`
-   (or extend `resolveConfig` in `src/lib/config.ts` if it is app-wide).
+   (the auth keys are read by `resolveAuthConfig`, `src/lib/supabase-auth/config.ts`).
 2. Document it in `website/.env.example`.
 3. Add it to each environment's secret, and to
    `infrastructure/required-secret-keys.txt` if it is mandatory.

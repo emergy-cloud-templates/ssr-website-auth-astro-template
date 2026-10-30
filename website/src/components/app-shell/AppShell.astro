@@ -1,0 +1,96 @@
+---
+// Adapted from /common/legos/preact/app-shell@2.0.0 (dvk-common 61a5d51). Owned by this project.
+// Origin: www.boulot.ai - website/src/layouts/DashboardLayout.astro. Lego app-shell.
+//
+// The dashboard frame for an Astro page: the sidebar, the top bar and the main column, with the collapse restored
+// before paint. Use it inside the project's base layout (which holds <html>, <head> and the global stylesheet):
+//
+//   <Layout title="Projects">
+//     <AppShell brand={brand} nav={NAV} adminNav={ADMIN_NAV} user={Astro.locals.user} isAdmin={isAdmin} title="Projects">
+//       <UserPicker client:load slot="header-actions" ... />
+//       ...page content...
+//     </AppShell>
+//   </Layout>
+import { AppHeader, type AppHeaderProps } from "./AppHeader";
+import { AppSidebar, type AppSidebarProps } from "./AppSidebar";
+import type { NavEntry } from "./nav";
+import { SHELL_PREPAINT_SCRIPT } from "./stores";
+
+interface Props {
+  brand: AppSidebarProps["brand"];
+  nav: NavEntry[];
+  adminNav?: NavEntry[];
+  isAdmin?: boolean;
+  user?: AppHeaderProps["user"];
+  accountItems?: AppHeaderProps["accountItems"];
+  signOutAction?: string;
+  /** The page's heading, above the content (and its subtitle). */
+  title?: string;
+  subtitle?: string;
+  headerVariant?: AppHeaderProps["variant"];
+  icons?: Record<string, string>;
+  sidebarLabels?: AppSidebarProps["labels"];
+  headerLabels?: AppHeaderProps["labels"];
+  skipLabel?: string;
+}
+
+const {
+  brand,
+  nav,
+  adminNav,
+  isAdmin = false,
+  user = null,
+  accountItems,
+  signOutAction,
+  title,
+  subtitle,
+  headerVariant,
+  icons,
+  sidebarLabels,
+  headerLabels,
+  skipLabel = "Skip to content",
+} = Astro.props;
+const isLocal = import.meta.env.DEV;
+---
+
+<script is:inline set:html={SHELL_PREPAINT_SCRIPT} />
+<a href="#main-content" class="skip-link">
+  {skipLabel}
+</a>
+<AppSidebar
+  client:load
+  currentPath={Astro.url.pathname}
+  brand={brand}
+  nav={nav}
+  adminNav={adminNav}
+  isAdmin={isAdmin}
+  isLocal={isLocal}
+  icons={icons}
+  labels={sidebarLabels}
+  showFooter={Astro.slots.has("sidebar-footer")}
+>
+  <slot name="sidebar-footer" slot="footer" />
+</AppSidebar>
+<div class="app-content flex min-h-screen flex-col">
+  <AppHeader
+    client:load
+    brand={brand}
+    user={user}
+    accountItems={accountItems}
+    signOutAction={signOutAction}
+    variant={headerVariant}
+    icons={icons}
+    labels={headerLabels}
+  >
+    <slot name="header-actions" slot="actions" />
+  </AppHeader>
+  <main id="main-content" class="relative flex-1 px-4 py-4 sm:px-6 sm:py-6">
+    {(title || subtitle) && (
+      <div class="mb-5 sm:mb-6">
+        {title && <h1 class="text-2xl font-bold tracking-tight text-content sm:text-[1.75rem]">{title}</h1>}
+        {subtitle && <p class="mt-1 text-sm text-content-muted">{subtitle}</p>}
+      </div>
+    )}
+    <slot />
+  </main>
+</div>
