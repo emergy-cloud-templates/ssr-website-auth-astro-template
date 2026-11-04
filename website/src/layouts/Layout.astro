@@ -6,9 +6,11 @@ import { siteConfig } from "../config/site";
 interface Props {
   title: string;
   description?: string;
+  /** The skip link to #main; the dashboard shell brings its own (to #main-content). */
+  skipLink?: boolean;
 }
 
-const { title, description = siteConfig.description } = Astro.props;
+const { title, description = siteConfig.description, skipLink = true } = Astro.props;
 ---
 
 <!doctype html>
@@ -20,13 +22,15 @@ const { title, description = siteConfig.description } = Astro.props;
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>{`${title} | ${siteConfig.name}`}</title>
   </head>
-  <body class="min-h-screen bg-gray-50 text-gray-900 antialiased">
-    <a
-      href="#main"
-      class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-white focus:px-4 focus:py-2 focus:shadow"
-    >
-      Skip to content
-    </a>
+  <body class="min-h-screen bg-canvas text-content antialiased">
+    {skipLink && (
+      <a
+        href="#main"
+        class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-surface-raised focus:px-4 focus:py-2 focus:shadow"
+      >
+        Skip to content
+      </a>
+    )}
     <slot />
   </body>
 </html>

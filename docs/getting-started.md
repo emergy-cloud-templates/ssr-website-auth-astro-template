@@ -45,7 +45,7 @@ SQLite auth provider. See [Local development](local-development.md).
    | Supabase value | Variable |
    | --- | --- |
    | Project URL (`https://<ref>.supabase.co`) | `PUBLIC_SUPABASE_URL` |
-   | Publishable key (`sb_publishable_...`, or the legacy `anon` key) | `PUBLIC_SUPABASE_PUBLISHABLE_KEY` |
+   | Publishable key (`sb_publishable_...`, or the legacy `anon` key) | `PUBLIC_SUPABASE_ANON_KEY` (the platform's name; `PUBLIC_SUPABASE_PUBLISHABLE_KEY` also works) |
    | Secret key (`sb_secret_...`, or the legacy `service_role` key) | `SUPABASE_SECRET_KEY` (optional, enables "Delete account") |
 
 3. In **Authentication > URL Configuration**:
@@ -95,7 +95,7 @@ Otherwise, once per AWS account:
    ```json
    {
      "PUBLIC_SUPABASE_URL": "https://abcd.supabase.co",
-     "PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_...",
+     "PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_...",
      "SUPABASE_SECRET_KEY": "sb_secret_..."
    }
    ```

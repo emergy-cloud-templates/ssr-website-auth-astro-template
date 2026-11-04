@@ -1,25 +1,31 @@
 ---
-import { SignInForm } from "../../components/auth/SignInForm";
+import { SignInForm } from "~/components/auth-forms";
+import { safeRedirectPath } from "~/components/auth-forms/validation";
+import { auth } from "~/lib/auth";
 import AuthLayout from "../../layouts/AuthLayout.astro";
-import { safeRedirectPath } from "../../lib/validation";
 
 // Only known codes map to text: the query string is never echoed into the page.
 const NOTICES: Record<string, string> = {
   link_expired: "That link is invalid or has expired. Please request a new one.",
+  google_unavailable: "Google sign-in is not available right now. Use your email and password.",
 };
 
 const redirectTo = safeRedirectPath(Astro.url.searchParams.get("redirectTo"), "");
 const notice = NOTICES[Astro.url.searchParams.get("error") ?? ""];
+// "Continue with Google": always with the local provider (an offline stand-in), with AUTH_GOOGLE=true on Supabase.
+const googleHref = auth.config().googleSignIn
+  ? `/api/auth/google${redirectTo ? `?redirectTo=${encodeURIComponent(redirectTo)}` : ""}`
+  : undefined;
 ---
 
 <AuthLayout title="Sign in">
   <Fragment slot="heading">Sign in to your account</Fragment>
   <Fragment slot="subheading">
     Or{" "}
-    <a href="/auth/signup" class="font-medium text-indigo-600 hover:text-indigo-500">
+    <a href="/auth/signup" class="font-medium text-link hover:text-link-hover">
       create a new account
     </a>
   </Fragment>
 
-  <SignInForm client:load redirectTo={redirectTo || undefined} notice={notice} />
+  <SignInForm client:load redirectTo={redirectTo || undefined} notice={notice} googleHref={googleHref} />
 </AuthLayout>

@@ -1,6 +1,6 @@
 # One AWS Secrets Manager secret per environment holds ALL runtime
 # configuration as a single JSON object, e.g.
-#   { "PUBLIC_SUPABASE_URL": "...", "PUBLIC_SUPABASE_PUBLISHABLE_KEY": "...",
+#   { "PUBLIC_SUPABASE_URL": "...", "PUBLIC_SUPABASE_ANON_KEY": "...",
 #     "SUPABASE_SECRET_KEY": "..." }
 # The SSR Lambda reads it at cold start (APP_SECRETS_ID, see lambda.tf).
 #

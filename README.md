@@ -67,7 +67,8 @@ flowchart LR
 
 - **Astro** renders pages on the server. `src/middleware.ts` resolves the
   signed-in user on every request and applies the route rules.
-- **Auth** goes through one interface (`src/lib/auth`). The Supabase provider
+- **Auth** goes through one interface (`src/lib/supabase-auth`, wired in
+  `src/lib/auth.ts`). The Supabase provider
   uses `@supabase/ssr` with httpOnly cookies; the local provider uses Node's
   built-in SQLite. Pick one with environment variables, no code change.
 - **AWS**: static files come from S3 through CloudFront; every other request
@@ -140,9 +141,10 @@ Details: [AI assistant](docs/ai-assistant.md).
 ├── website/                 Astro app (pnpm project)
 │   ├── src/
 │   │   ├── middleware.ts    session + route protection on every request
-│   │   ├── lib/auth/        auth interface, Supabase + local providers
+│   │   ├── lib/auth.ts      wires the auth lego: providers, protected routes
+│   │   ├── lib/             lego copies: supabase-auth, api-route (/.legos.json)
 │   │   ├── pages/           pages, API routes (pages/api), /auth/callback
-│   │   ├── components/      Preact islands (forms, dashboard shell, UI)
+│   │   ├── components/      Preact islands: ui (theme.css), auth-forms, app-shell
 │   │   └── layouts/         page shells
 │   ├── ssr/                 AWS Lambda adapter + local Lambda server
 │   ├── tests/               unit (Vitest) and e2e (Playwright) tests

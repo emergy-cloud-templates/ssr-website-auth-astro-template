@@ -1,11 +1,5 @@
+// Adapted from /common/legos/node/supabase-auth@1.0.0 (dvk-common d587e16), pages/api/auth/signout.ts. Owned by this project.
 import type { APIRoute } from "astro";
+import { auth } from "~/lib/auth";
 
-export const POST: APIRoute = async ({ locals, redirect }) => {
-  try {
-    await locals.auth.signOut();
-  } catch (error) {
-    // Signing out must always succeed from the user's point of view.
-    console.error("[signout]", error);
-  }
-  return redirect("/", 303);
-};
+export const POST: APIRoute = (context) => auth.handlers.signOut(context);

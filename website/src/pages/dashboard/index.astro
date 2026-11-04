@@ -1,5 +1,5 @@
 ---
-import { IconSettings } from "../../components/icons";
+import { Icon } from "~/components/app-shell";
 import DashboardLayout from "../../layouts/DashboardLayout.astro";
 
 const name = Astro.locals.user?.name || "there";
@@ -7,19 +7,19 @@ const name = Astro.locals.user?.name || "there";
 
 <DashboardLayout title="Dashboard" pageTitle="Dashboard">
   <div class="space-y-6">
-    <section class="rounded-xl border border-gray-200 bg-white px-6 py-5 shadow-sm">
-      <h2 class="text-xl font-semibold text-gray-900">Welcome back, {name}!</h2>
-      <p class="mt-2 text-gray-600">This is your protected dashboard. Replace this page with your application.</p>
+    <section class="rounded-xl border border-line bg-surface-raised px-6 py-5 shadow-sm">
+      <h2 class="text-xl font-semibold text-content">Welcome back, {name}!</h2>
+      <p class="mt-2 text-content-muted">This is your protected dashboard. Replace this page with your application.</p>
     </section>
 
-    <section class="rounded-xl border border-gray-200 bg-white shadow-sm">
-      <h3 class="border-b border-gray-200 px-6 py-4 text-lg font-semibold text-gray-900">Quick actions</h3>
+    <section class="rounded-xl border border-line bg-surface-raised shadow-sm">
+      <h3 class="border-b border-line px-6 py-4 text-lg font-semibold text-content">Quick actions</h3>
       <div class="flex flex-wrap gap-4 p-6">
         <a
           href="/account"
-          class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
+          class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-on-primary transition-colors hover:bg-primary-hover"
         >
-          <IconSettings class="h-4 w-4" />
+          <Icon name="cog" class="h-4 w-4" />
           Account settings
         </a>
       </div>

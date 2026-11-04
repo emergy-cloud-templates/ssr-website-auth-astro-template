@@ -1,12 +1,11 @@
 ---
+// Adapted from /common/legos/node/supabase-auth@1.0.0 (dvk-common d587e16), pages/dev/mailbox.astro. Owned by this project.
+// Only the local auth provider has an outbox. With Supabase, emails are real (or, with `supabase start`, visible in
+// Mailpit at http://127.0.0.1:54324).
 import AuthLayout from "../../layouts/AuthLayout.astro";
 
-// Only the local auth provider has an outbox. With Supabase, emails are real
-// (or, with `supabase start`, visible in Mailpit at http://127.0.0.1:54324).
 const { auth } = Astro.locals;
-if (auth.provider !== "local" || !auth.readOutbox) {
-  return new Response("Not found", { status: 404 });
-}
+if (auth.provider !== "local" || !auth.readOutbox) return new Response("Not found", { status: 404 });
 const emails = auth.readOutbox(25);
 ---
 
@@ -15,20 +14,20 @@ const emails = auth.readOutbox(25);
   <Fragment slot="subheading">Emails the local auth provider would have sent, newest first.</Fragment>
 
   {emails.length === 0 ? (
-    <p class="text-sm text-gray-600">No emails yet. Sign up or request a password reset.</p>
+    <p class="text-sm text-content-muted">No emails yet. Sign up or request a password reset.</p>
   ) : (
-    <ul class="divide-y divide-gray-200" data-testid="mailbox">
+    <ul class="divide-y divide-line" data-testid="mailbox">
       {emails.map((email) => (
         <li class="py-4">
-          <p class="text-sm font-semibold text-gray-900">{email.subject}</p>
-          <p class="text-xs text-gray-600">
+          <p class="text-sm font-semibold text-content">{email.subject}</p>
+          <p class="text-xs text-content-muted">
             To {email.to} - {new Date(email.createdAt).toLocaleString("en")}
           </p>
-          <p class="mt-2 text-sm text-gray-700">{email.body}</p>
+          <p class="mt-2 text-sm text-content-secondary">{email.body}</p>
           {email.link && (
             <a
               href={email.link}
-              class="mt-2 inline-block text-sm font-medium break-all text-indigo-600 hover:text-indigo-500"
+              class="mt-2 inline-block text-sm font-medium break-all text-link hover:text-link-hover"
             >
               Open link
             </a>

@@ -1,5 +1,7 @@
 ---
-import { DashboardShell } from "../components/dashboard/DashboardShell";
+import AppShell from "~/components/app-shell/AppShell.astro";
+import type { NavEntry } from "~/components/app-shell";
+import { siteConfig } from "../config/site";
 import Layout from "./Layout.astro";
 
 interface Props {
@@ -7,20 +9,25 @@ interface Props {
   pageTitle?: string;
 }
 
+/** The dashboard's navigation (the app-shell lego renders it): add your app's sections here. */
+const NAV: NavEntry[] = [
+  { label: "Dashboard", href: "/dashboard", icon: "home", match: "exact" },
+  { label: "Settings", href: "/account", icon: "cog" },
+];
+
 const { title, pageTitle } = Astro.props;
 const user = Astro.locals.user;
-const initialSidebarCollapsed = Astro.cookies.get("sidebar-collapsed")?.value === "true";
 ---
 
-<Layout title={title}>
-  <DashboardShell
-    client:load
-    email={user?.email ?? ""}
-    name={user?.name ?? ""}
+<Layout title={title} skipLink={false}>
+  <AppShell
+    brand={{ name: siteConfig.name, href: "/dashboard" }}
+    nav={NAV}
+    user={user}
     title={pageTitle}
-    currentPath={Astro.url.pathname}
-    initialSidebarCollapsed={initialSidebarCollapsed}
+    sidebarLabels={{ closeMenu: "Close navigation" }}
+    headerLabels={{ openMenu: "Open navigation", showNavigation: "Expand sidebar", hideNavigation: "Collapse sidebar" }}
   >
     <slot />
-  </DashboardShell>
+  </AppShell>
 </Layout>

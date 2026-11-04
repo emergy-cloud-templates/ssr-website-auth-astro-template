@@ -81,7 +81,7 @@ sequenceDiagram
 1. `middleware.ts` builds an `AuthService` bound to the request's cookies
    (`locals.auth`) and resolves the user (`locals.user`). An auth outage
    degrades to "signed out" instead of an error page.
-2. `lib/routes.ts` decides redirects: protected pages need a user (and
+2. The route rules (`lib/supabase-auth/rules.ts`, set in `lib/auth.ts`) decide redirects: protected pages need a user (and
    remember where the visitor was going), guest-only pages send signed-in
    users to the dashboard, the update-password page needs the session created
    by a reset link.
@@ -91,11 +91,11 @@ sequenceDiagram
 ### The auth interface
 
 Pages and API routes never import a provider. They use `AuthService`
-(`lib/auth/types.ts`): `getUser`, `signIn`, `signUp`, `signOut`,
+(`lib/supabase-auth/types.ts`): `getUser`, `signIn`, `signUp`, `signOut`,
 `requestPasswordReset`, `verifyCallback`, `verifyPassword`, `updatePassword`,
 `updateProfile`, `deleteAccount`. Failures users should see are `AuthError`s
 with a small set of codes (`invalid_credentials`, `rate_limited`, ...), mapped
-to HTTP responses in one place (`lib/http.ts`). Anything else is logged and
+to HTTP responses in one place (`lib/supabase-auth/errors.ts`). Anything else is logged and
 answered with a generic message: internals never reach the browser.
 
 | | Supabase provider | Local provider |

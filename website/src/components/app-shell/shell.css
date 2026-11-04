@@ -1,0 +1,78 @@
+/* Adapted from /common/legos/preact/app-shell@2.0.0 (dvk-common 61a5d51). Owned by this project. */
+/* Origin: www.boulot.ai - website/src/styles/global.css (app shell block). Lego app-shell.
+
+   The shell's layout: the content's offset for the fixed sidebar, the desktop collapse, and the brand in the header
+   while the sidebar is hidden. Import it in the global stylesheet after ui-primitives/theme.css:
+       @import "../components/app-shell/shell.css";
+   The collapse is driven by <html data-sidebar-collapsed>, set before the first paint by the layout's inline script
+   (SHELL_PREPAINT_SCRIPT), so a page load never slides or flashes; transitions wait for html.sidebar-ready (added
+   after the first paint), so only the user's own toggles animate. Colours: the shell tokens of theme.css. */
+@layer components {
+  /* The brand in the header: on phones always, on desktop only while the sidebar is collapsed (below). */
+  .header-logo {
+    display: inline-flex;
+  }
+
+  html.sidebar-ready .app-content {
+    transition: padding-left 0.3s ease;
+  }
+  html.sidebar-ready #app-sidebar,
+  html.sidebar-ready .app-content::before {
+    transition: transform 0.3s ease;
+  }
+
+  @media (min-width: 1024px) {
+    .app-content {
+      padding-left: 16rem;
+    }
+    html[data-sidebar-collapsed="true"] .app-content {
+      padding-left: 0;
+    }
+    html[data-sidebar-collapsed="true"] #app-sidebar {
+      transform: translateX(-100%);
+    }
+    .header-logo {
+      display: none;
+    }
+    html[data-sidebar-collapsed="true"] .header-logo {
+      display: inline-flex;
+    }
+    /* The shell's surface painted under the sidebar's place by CSS alone, so that column never flashes the page
+       colour before the sidebar island hydrates on a navigation. */
+    .app-content::before {
+      content: "";
+      position: fixed;
+      inset: 0 auto 0 0;
+      width: 16rem;
+      background: var(--shell-background, var(--color-shell));
+      z-index: 0;
+      pointer-events: none;
+    }
+    html[data-sidebar-collapsed="true"] .app-content::before {
+      transform: translateX(-100%);
+    }
+  }
+
+  /* The skip link: off screen until focused. */
+  .skip-link {
+    position: absolute;
+    left: -9999px;
+  }
+  .skip-link:focus {
+    position: fixed;
+    top: 0.5rem;
+    left: 0.5rem;
+    z-index: 60;
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-input);
+    background: var(--color-surface-raised);
+    color: var(--color-content);
+    outline: 2px solid var(--color-focus);
+  }
+
+  /* A thin scrollbar for the nav column, in the shell's line colour. */
+  #app-sidebar nav {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-shell-line) transparent;
+  }
+}

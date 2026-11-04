@@ -1,1 +1,5 @@
 @import "tailwindcss";
+/* The theme contract (the ui-primitives lego): every component's colours, radii and fonts. Restyle the app here. */
+@import "../components/ui/theme.css";
+/* The dashboard frame's layout (the app-shell lego). */
+@import "../components/app-shell/shell.css";

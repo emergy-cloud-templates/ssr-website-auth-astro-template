@@ -1,0 +1,92 @@
+{
+  "$schema": "https://git.emergy.cloud/emergy-cloud/dvk-common/raw/branch/main/schemas/legos-manifest.schema.json",
+  "legos": [
+    {
+      "name": "astro-ssr-lambda",
+      "tech": "node",
+      "layer": "backend",
+      "version": "2.0.0",
+      "source": "e1830c4",
+      "paths": [
+        "website/ssr/lambda.js",
+        "website/ssr/shim.js",
+        "website/ssr/loadSecrets.ts",
+        "website/ssr/package.json",
+        "website/ssr/local-server.mjs",
+        "website/ssr/smoke-test.mjs",
+        "website/scripts/prepare-aws.mjs"
+      ],
+      "updated": "2026-10-28",
+      "notes": "This copy is the lego's origin; the smoke test keeps the template's auth checks."
+    },
+    {
+      "name": "ui-primitives",
+      "tech": "preact",
+      "layer": "frontend",
+      "version": "2.0.0",
+      "source": "c651346",
+      "paths": [
+        "website/src/components/ui"
+      ],
+      "updated": "2026-10-30",
+      "notes": "theme.css carries the template's values: Tailwind indigo and gray, a white (light) shell, 0.5rem cards."
+    },
+    {
+      "name": "auth-forms",
+      "tech": "preact",
+      "layer": "frontend",
+      "version": "1.0.0",
+      "source": "8a62bd5",
+      "paths": [
+        "website/src/components/auth-forms"
+      ],
+      "updated": "2026-10-30",
+      "notes": "The template is this lego's origin. Google sign-in is on with the local provider (its stand-in page) and with AUTH_GOOGLE=true on Supabase."
+    },
+    {
+      "name": "app-shell",
+      "tech": "preact",
+      "layer": "frontend",
+      "version": "2.0.0",
+      "source": "61a5d51",
+      "paths": [
+        "website/src/components/app-shell",
+        "website/src/layouts/DashboardLayout.astro"
+      ],
+      "updated": "2026-10-30",
+      "notes": "Labels kept from the template: Open navigation, Close navigation, Expand and Collapse sidebar. NAV in DashboardLayout.astro."
+    },
+    {
+      "name": "api-route",
+      "tech": "node",
+      "layer": "backend",
+      "version": "1.0.0",
+      "source": "33220c4",
+      "paths": [
+        "website/src/lib/api-route",
+        "website/src/lib/route.ts"
+      ],
+      "updated": "2026-10-30",
+      "notes": "defineRoute in src/lib/route.ts for new routes; the auth routes use the supabase-auth handlers."
+    },
+    {
+      "name": "supabase-auth",
+      "tech": "node",
+      "layer": "backend",
+      "version": "1.0.0",
+      "source": "d587e16",
+      "paths": [
+        "website/src/lib/supabase-auth",
+        "website/src/lib/auth.ts",
+        "website/src/middleware.ts",
+        "website/src/pages/api/auth",
+        "website/src/pages/api/account",
+        "website/src/pages/auth/callback.ts",
+        "website/src/pages/auth/google-demo.astro",
+        "website/src/pages/dev/mailbox.astro"
+      ],
+      "updated": "2026-10-30",
+      "notes": "The template is this lego's origin (lib/auth, config, http, routes, middleware, API routes). Its unit tests now live in the library; tests/unit/auth-wiring.test.ts checks the wiring here."
+    }
+  ]
+}

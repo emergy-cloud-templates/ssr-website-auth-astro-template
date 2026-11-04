@@ -13,25 +13,25 @@ const localMode = Astro.locals.auth.provider === "local";
 <Layout title={title}>
   <main id="main" class="flex min-h-screen flex-col justify-center py-12 sm:px-6 lg:px-8">
     <div class="sm:mx-auto sm:w-full sm:max-w-md">
-      <a href="/" class="flex justify-center text-3xl font-bold text-indigo-600">
+      <a href="/" class="flex justify-center text-3xl font-bold text-link">
         {siteConfig.name}
       </a>
-      <h1 class="mt-6 text-center text-2xl leading-9 font-bold tracking-tight text-gray-900">
+      <h1 class="mt-6 text-center text-2xl leading-9 font-bold tracking-tight text-content">
         <slot name="heading" />
       </h1>
-      <p class="mt-2 text-center text-sm text-gray-600">
+      <p class="mt-2 text-center text-sm text-content-muted">
         <slot name="subheading" />
       </p>
     </div>
 
     <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-      <div class="bg-white px-6 py-8 shadow sm:rounded-lg sm:px-12">
+      <div class="bg-surface-raised px-6 py-8 shadow sm:rounded-lg sm:px-12">
         <slot />
       </div>
       {localMode && (
-        <p class="mt-4 px-6 text-center text-xs text-gray-600 sm:px-0">
+        <p class="mt-4 px-6 text-center text-xs text-content-muted sm:px-0">
           Local auth mode: accounts live in a SQLite file and emails are listed in the{" "}
-          <a href="/dev/mailbox" class="font-medium text-indigo-600 hover:text-indigo-500">
+          <a href="/dev/mailbox" class="font-medium text-link hover:text-link-hover">
             dev mailbox
           </a>
           .
