@@ -1,0 +1,16 @@
+---
+import { siteConfig } from "../../config/site";
+import Layout from "../../layouts/Layout.astro";
+---
+
+<Layout title="Email confirmed">
+  <main id="main" class="mx-auto max-w-2xl px-4 py-24 text-center">
+    <h1 class="text-3xl font-bold tracking-tight text-content">You are on the list</h1>
+    <p class="mt-4 text-content-muted">
+      Your email address is confirmed. We will write to you when {siteConfig.name} opens.
+    </p>
+    <a href="/" class="mt-8 inline-block text-sm font-semibold text-link hover:text-link-hover">
+      Back to the home page
+    </a>
+  </main>
+</Layout>
