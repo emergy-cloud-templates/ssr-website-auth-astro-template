@@ -1,7 +1,10 @@
 ---
 import "../styles/global.css";
 
+import { getSecret } from "astro:env/server";
+
 import { siteConfig } from "../config/site";
+import { umamiTag } from "../lib/umami";
 
 interface Props {
   title: string;
@@ -11,6 +14,8 @@ interface Props {
 }
 
 const { title, description = siteConfig.description, skipLink = true } = Astro.props;
+// Read per request: the keys come from the platform config at cold start (prod only), not from the build.
+const umami = umamiTag((key) => getSecret(key));
 ---
 
 <!doctype html>
@@ -21,6 +26,7 @@ const { title, description = siteConfig.description, skipLink = true } = Astro.p
     <meta name="description" content={description} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>{`${title} | ${siteConfig.name}`}</title>
+    {umami && <script defer src={umami.src} data-website-id={umami.websiteId} />}
   </head>
   <body class="min-h-screen bg-canvas text-content antialiased">
     {skipLink && (

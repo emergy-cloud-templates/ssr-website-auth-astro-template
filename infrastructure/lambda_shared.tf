@@ -68,6 +68,25 @@ resource "aws_iam_role_policy" "lambda_exec_policy_website_ssr" {
           for env in local.all_envs :
           "arn:aws:secretsmanager:${data.aws_region.current.region}:${var.aws_account_number}:secret:${env}/${var.project_id}-*"
         ]
+      },
+      {
+        # Read the platform config the emergy.cloud platform delivers per env
+        # ("/emergy/<project_id>/<env>", SSM SecureString). Only these parameters.
+        Effect = "Allow"
+        Action = ["ssm:GetParameter"]
+        Resource = [
+          for env in local.all_envs :
+          "arn:aws:ssm:${data.aws_region.current.region}:${var.aws_account_number}:parameter/emergy/${var.project_id}/${env}"
+        ]
+      },
+      {
+        # The parameters use the AWS managed key aws/ssm; Decrypt only through SSM.
+        Effect   = "Allow"
+        Action   = ["kms:Decrypt"]
+        Resource = "*"
+        Condition = {
+          StringEquals = { "kms:ViaService" = "ssm.${data.aws_region.current.region}.amazonaws.com" }
+        }
       }
     ]
   })

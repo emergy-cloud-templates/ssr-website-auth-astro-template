@@ -60,8 +60,14 @@ key into `process.env` (`ssr/loadSecrets.ts`):
 - Terraform deliberately does not manage the secret, so values never land in
   Terraform state.
 
-Variables set by Terraform on the function (`APP_SECRETS_ID`, `ENV`,
-`ORIGIN_VERIFY_SECRET`) always win over the secret's keys.
+Variables set by Terraform on the function (`APP_SECRETS_ID`, `ENV`, `PROJECT_ID`,
+`PLATFORM_CONFIG_PARAM`, `ORIGIN_VERIFY_SECRET`) always win over the secret's keys.
+
+The function also loads the **platform config** when the emergy.cloud platform
+delivers one (see [Platform services](platform-services.md)): the SSM
+SecureString `/emergy/<project_id>/<env>`. Its keys fill in whatever the secret
+does not set, so a project can run with no secret of its own. Precedence:
+function variables, then the secret, then the platform config.
 
 ### Adding a variable
 

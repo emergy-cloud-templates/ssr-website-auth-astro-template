@@ -40,12 +40,15 @@
     "@tailwindcss/vite": "^4.3.3",
     "astro": "^7.3.5",
     "nanostores": "^1.5.4",
+    "postgres": "^4.1.1",
     "preact": "^10.29.8",
+    "stripe": "^23.1.0",
     "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
     "@aws-sdk/client-secrets-manager": "^3.1146.0",
+    "@aws-sdk/client-ssm": "^3.1169.0",
     "@axe-core/playwright": "^4.13.0",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.63.0",

@@ -17,7 +17,7 @@
         "website/scripts/prepare-aws.mjs"
       ],
       "updated": "2026-10-28",
-      "notes": "This copy is the lego's origin; the smoke test keeps the template's auth checks."
+      "notes": "This copy is the lego's origin; the smoke test keeps the template's auth checks. Diverges from the lego: loadSecrets.ts also reads the platform config (SSM SecureString PLATFORM_CONFIG_PARAM, /emergy/<project_id>/<env>) under the own secret, with @aws-sdk/client-ssm; to give back to the lego."
     },
     {
       "name": "ui-primitives",
@@ -87,6 +87,21 @@
       ],
       "updated": "2026-10-30",
       "notes": "The template is this lego's origin (lib/auth, config, http, routes, middleware, API routes). Its unit tests now live in the library; tests/unit/auth-wiring.test.ts checks the wiring here."
+    },
+    {
+      "name": "stripe-billing",
+      "tech": "node",
+      "layer": "backend",
+      "version": "1.0.0",
+      "source": "dfb9868",
+      "paths": [
+        "website/src/lib/stripe-billing",
+        "website/src/lib/billing.ts",
+        "website/src/pages/api/billing",
+        "website/src/pages/api/stripe"
+      ],
+      "updated": "2026-11-17",
+      "notes": "Postgres store (postgres.ts, over DATABASE_URL) replaces the lego's Supabase store; billing.ts adds a metadata option (project and env tags on Checkout, for the emergy.cloud webhook relay); the glue uses the fake Stripe only locally and answers 503 in a deployed environment without STRIPE_SECRET_KEY. No lego tests copied; tests/unit/billing.test.ts covers the adaptations."
     }
   ]
 }
