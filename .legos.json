@@ -17,7 +17,7 @@
         "website/scripts/prepare-aws.mjs"
       ],
       "updated": "2026-10-28",
-      "notes": "This copy is the lego's origin; the smoke test keeps the template's auth checks."
+      "notes": "This copy is the lego's origin; the smoke test keeps the template's auth checks. Diverges from the lego: loadSecrets.ts also reads the platform config (SSM SecureString PLATFORM_CONFIG_PARAM, /emergy/<project_id>/<env>) under the own secret, with @aws-sdk/client-ssm; to give back to the lego."
     },
     {
       "name": "ui-primitives",

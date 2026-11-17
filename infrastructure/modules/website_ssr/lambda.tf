@@ -23,6 +23,11 @@ resource "aws_lambda_function" "website_ssr" {
       # No secret values here: lambda.js loads the "<env>/<project_id>" JSON
       # secret into process.env at cold start (ssr/loadSecrets.ts).
       APP_SECRETS_ID       = "${var.environment}/${var.project_id}"
+
+      # Config the emergy.cloud platform delivers (SSM SecureString, optional): loadSecrets
+      # merges it under the secret above. An absent parameter is fine (fail-soft).
+      PLATFORM_CONFIG_PARAM = "/emergy/${var.project_id}/${var.environment}"
+
       ENV                  = var.environment
       ORIGIN_VERIFY_SECRET = random_password.origin_verify.result
       NODE_OPTIONS         = "--enable-source-maps"

@@ -68,20 +68,25 @@ check_aws_account() {
   green "AWS account $account"
 }
 
-# Compares secret KEYS with infrastructure/required-secret-keys.txt. Values are
-# never printed.
+# Compares KEYS with infrastructure/required-secret-keys.txt. A key counts when it is in the
+# "<env>/<project_id>" Secrets Manager secret OR in the platform config the emergy.cloud platform
+# delivers (SSM SecureString /emergy/<project_id>/<env>); either source may be missing, but not both.
+# Values are never printed.
 check_secret() {
-  local env=$1 secret_id="$1/$PROJECT_ID" keys missing=()
-  if ! keys=$(aws secretsmanager get-secret-value --secret-id "$secret_id" \
-    --query SecretString --output text 2>/dev/null | jq -r 'keys[]'); then
-    die "secret '$secret_id' not found or unreadable: create it with 'scripts/deploy.sh secret $env <file.json>'"
+  local env=$1 secret_id="$1/$PROJECT_ID" param="/emergy/$PROJECT_ID/$1" keys="" platform_keys="" missing=()
+  keys=$(aws secretsmanager get-secret-value --secret-id "$secret_id" \
+    --query SecretString --output text 2>/dev/null | jq -r 'keys[]' 2>/dev/null) || keys=""
+  platform_keys=$(aws ssm get-parameter --name "$param" --with-decryption \
+    --query Parameter.Value --output text 2>/dev/null | jq -r 'keys[]' 2>/dev/null) || platform_keys=""
+  if [[ -z "$keys" && -z "$platform_keys" ]]; then
+    die "neither secret '$secret_id' nor platform config '$param' found or readable: create the secret with 'scripts/deploy.sh secret $env <file.json>'"
   fi
   while IFS= read -r key; do
     [[ -z "$key" || "$key" == \#* ]] && continue
-    grep -qx "$key" <<<"$keys" || missing+=("$key")
+    grep -qx "$key" <<<"$keys"$'\n'"$platform_keys" || missing+=("$key")
   done <"$INFRA_DIR/required-secret-keys.txt"
-  ((${#missing[@]} == 0)) || die "secret '$secret_id' is missing keys: ${missing[*]}"
-  green "Secret $secret_id has every required key"
+  ((${#missing[@]} == 0)) || die "'$secret_id' and '$param' together are missing keys: ${missing[*]}"
+  green "Secret $secret_id and platform config $param have every required key"
 }
 
 cmd_check() {

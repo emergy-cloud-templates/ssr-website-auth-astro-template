@@ -46,6 +46,7 @@
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
     "@aws-sdk/client-secrets-manager": "^3.1146.0",
+    "@aws-sdk/client-ssm": "^3.1169.0",
     "@axe-core/playwright": "^4.13.0",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.63.0",
