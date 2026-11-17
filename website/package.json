@@ -42,6 +42,7 @@
     "nanostores": "^1.5.4",
     "postgres": "^4.1.1",
     "preact": "^10.29.8",
+    "stripe": "^23.1.0",
     "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
