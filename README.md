@@ -127,6 +127,7 @@ Details: [AI assistant](docs/ai-assistant.md).
 | [Getting started](docs/getting-started.md) | First-time setup checklist: Supabase, AWS, GitHub, first deploy |
 | [Local development](docs/local-development.md) | Local SQLite mode, Supabase CLI, hosted Supabase, commands |
 | [Configuration](docs/configuration.md) | Every environment variable, secret and repository variable |
+| [Platform services](docs/platform-services.md) | Database, analytics, waitlist and payments delivered by emergy.cloud |
 | [Architecture](docs/architecture.md) | Request flow, auth design, Lambda adapter, caching, security |
 | [Deployment](docs/deployment.md) | CI/CD pipeline, environments, manual deploys, domains, rollback |
 | [Customization](docs/customization.md) | Rename, add pages and API routes, store user data |
